@@ -1,0 +1,21 @@
+{# The portal (`web/portal_routes.py`): where clients point, the desk's roles, the workspace apps. Swapped into #portal on the Status page. #}
+{% set p = portal %}
+<h2 class="panel-title" id="portal-title">Use it <span class="hint">the one bookmark for this box</span></h2>
+<dl class="kv">
+  <dt>Clients</dt><dd><code>{{ p.here }}</code> <span class="hint">from this machine</span> · <code>{{ p.containers }}</code> <span class="hint">from its containers</span>{% if p.keyed %} · <span class="hint">the key required (MNM_API_KEY)</span>{% endif %}</dd>
+  <dt>The desk</dt><dd>{% if p.desk.members %}{% for role, name in p.desk.members.items() %}<b class="hi">{{ role }}</b> <a href="/instances/{{ name }}">{{ name }}</a>{% if not loop.last %} · {% endif %}{% endfor %} <span class="hint">set {{ p.desk.desk }}: a client sends the role as its model</span>{% elif p.desk.problem %}<span class="warnline">{{ p.desk.problem }}</span>{% else %}<span class="dim">none</span> <span class="hint"><code>mnm sets default &lt;set&gt;</code> makes a set's roles model ids (<a href="/workflows">Sets</a>)</span>{% endif %}</dd>
+</dl>
+{% if p.apps_problem %}<div class="error">{{ p.apps_problem }}</div>{% endif %}
+{% if p.installed %}
+<div class="table-scroll"><table class="board">
+  <thead><tr><th>App</th><th>State</th><th>Open</th><th>Login</th></tr></thead>
+  <tbody>{% for s in p.installed %}<tr>
+    <td data-label="App" class="hi">{{ s.label }}</td>
+    <td data-label="State"><span class="st {% if s.state == 'running' %}st-ok{% elif s.state == 'unknown' %}st-bad{% else %}st-warn{% endif %}">{{ s.state }}</span>{% if s.error %}<div class="error">{{ s.error }}</div>{% endif %}</td>
+    <td data-label="Open">{% if s.definition.url %}<a href="{{ s.definition.url }}">{{ s.definition.url }}</a>{% endif %}</td>
+    <td data-label="Login">{% for note in s.notes %}<div class="hint">{{ note }}</div>{% endfor %}</td>
+  </tr>{% endfor %}</tbody>
+</table></div>
+{% endif %}
+{% if not p.installed %}<p class="hint">No workspace app installed.{% if p.not_installed %} {% for s in p.not_installed %}{{ s.label }}{% if not loop.last %}, {% endif %}{% endfor %}: <a href="/system/apps">System → Apps</a> installs them.{% endif %}</p>{% elif p.not_installed %}<p class="hint">Not installed: {% for s in p.not_installed %}{{ s.label }}{% if not loop.last %}, {% endif %}{% endfor %} (<a href="/system/apps">System → Apps</a> installs them).</p>{% endif %}
+{% if p.connected_only %}<p class="hint">{% for s in p.connected_only %}{{ s.label }}{% if not loop.last %} and {% endif %}{% endfor %} run on their own and reach the router through their own config: <a href="/system/apps">System → Apps</a> writes or shows it.</p>{% endif %}

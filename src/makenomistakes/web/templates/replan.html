@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% set tab = "status" %}
+{% block title %}Re-plan {{ done.old.name }} · makenomistakes{% endblock %}
+{% block subtabs %}<a href="/">← Instances</a><a href="/instances/{{ done.old.name }}">{{ done.old.name }}</a><a href="#" aria-current="page">Re-plan</a>{% endblock %}
+{% block body %}
+<section class="panel double" aria-labelledby="rp-title">
+  <h1 class="panel-title" id="rp-title">Re-plan {{ done.old.name }} for this machine</h1>
+  {% if busy_note %}<div class="warnline">{{ busy_note }}</div>{% endif %}
+  {% if doomed %}<div class="warnline">{{ doomed }}</div>{% endif %}
+  {% if not done.changed %}
+  <p>{{ done.old.name }} is planned as it is: nothing to change.</p>
+  <p><a class="btn" href="/instances/{{ done.old.name }}">Back</a></p>
+  {% else %}
+  <p>Planned again against the card as it is now{% if any_quant %}, the quant free to change{% endif %}. Your own settings (seed, negative prompt, sampler, steps, slots, voice, extra flags) stay.</p>
+  <ul>{% for c in done.changes %}<li><code>{{ c }}</code></li>{% endfor %}</ul>
+  {% if done.shrinks %}<div class="warnline">{{ done.old.name }} gets smaller: {{ done.shrinks | join(", ") }}.</div>{% endif %}
+  {% if done.new_files %}<p class="hint">The next start downloads: {{ done.new_files | join(", ") }}.</p>{% endif %}
+  <div class="actions"><form class="inline" method="post" action="/instances/{{ done.old.name }}/replan/save"><input type="hidden" name="shown" value="{{ done.fingerprint }}">{% if any_quant %}<input type="hidden" name="any_quant" value="on">{% endif %}<button class="btn primary">Save these settings</button></form>
+  <a class="btn quiet" href="/instances/{{ done.old.name }}">Keep the old ones</a></div>
+  {% endif %}
+</section>
+{% endblock %}

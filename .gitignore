@@ -1,0 +1,44 @@
+# ---- Secrets: never commit ----
+.env
+.env.*
+!.env.example
+secrets/
+*.key
+*.pem
+*.token
+hf_token*
+
+# ---- Local state, models, caches (they live outside the repository) ----
+models/
+model-store/
+data/
+# the package's own data (the hardware table): a fresh checkout reads it at import
+!src/makenomistakes/fit/data/
+state/
+logs/
+*.log
+*.gguf
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.onnx
+.cache/
+__pycache__/
+*.py[cod]
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+node_modules/
+dist/
+build/
+*.egg-info/
+
+# ---- Editor / OS ----
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

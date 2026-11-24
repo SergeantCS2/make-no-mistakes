@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% set tab = "system" %}
+{% block title %}ComfyUI · makenomistakes{% endblock %}
+{% block subtabs %}{% include "_system_tabs.html" %}{% endblock %}
+{% block body %}
+<section class="panel double" aria-labelledby="ce-title">
+  <h1 class="panel-title" id="ce-title">ComfyUI <span class="hint">mnm comfyui install · start · stop</span></h1>
+  <p class="hint">Optional: ComfyUI runs workflows from mnm's Workflows pages. mnm builds its image on this machine and runs it with no internet, the models read-only, and nothing of yours but its own folders. Nothing is downloaded until you press Install.</p>
+  {% if job and job.running %}{% include "_job.html" %}{% elif job and job.error %}{% include "_job.html" %}{% endif %}
+  <dl class="kv">
+    <dt>State</dt><dd>{{ state.value }}</dd>
+    {% if ledger_error %}<dt>Ledger</dt><dd class="warnline">{{ ledger_error }}</dd>{% endif %}
+    {% if ledger %}<dt>Image</dt><dd><code>{{ ledger.image }}</code> ({{ ledger.variant.value }}){% if ledger.previous %} <span class="hint">· before it: <code>{{ ledger.previous }}</code> (<code>mnm comfyui rollback</code>)</span>{% endif %}</dd>{% endif %}
+    {% if stats %}<dt>Running</dt><dd>ComfyUI {{ stats.system.comfyui_version }}, PyTorch {{ stats.system.pytorch_version }}, holding {{ gib(stats.held_bytes) }} of VRAM</dd>{% endif %}
+  </dl>
+  {% if state == State.NOT_INSTALLED %}
+  <form method="post" action="/system/comfyui/install" class="row" onsubmit='return confirm({{ ("Build ComfyUI here? About " ~ ("%.0f" | format(image_gib)) ~ " GB on disk and 10-30 minutes.") | tojson }})'><button class="btn primary">Install ComfyUI</button> <span class="hint">about {{ "%.0f" | format(image_gib) }} GB, 10-30 minutes ({{ variant.value }}{% if variant.value == "cpu" %}: no NVIDIA card is visible{% endif %})</span></form>
+  {% elif state == State.STOPPED %}
+  <form method="post" action="/system/comfyui/start" class="row"><button class="btn primary">Start ComfyUI</button></form>
+  {% else %}
+  <form method="post" action="/system/comfyui/stop" class="row"><button class="btn">Stop ComfyUI</button> <span class="hint">its image, workflows and outputs stay</span></form>
+  {% endif %}
+</section>
+
+<section class="panel double" aria-labelledby="cf-title">
+  <h2 class="panel-title" id="cf-title">Share the picture models with another ComfyUI</h2>
+  <p class="hint">ComfyUI can use the image models mnm downloaded, without a second copy: mnm links them by kind under its models folder, and ComfyUI reads that folder through its <code>extra_model_paths.yaml</code>.</p>
+  {% if linked >= 0 %}<div class="okline" role="status">Linked {{ linked }} file{{ "" if linked == 1 else "s" }}.</div>{% endif %}
+  <dl class="kv">{% for kind, links in layout.links.items() %}<dt>{{ kind }}</dt><dd>{{ links | length }}: {{ links.keys() | list | join(", ") }}</dd>{% else %}<dt>Models</dt><dd class="dim">no image models to link yet</dd>{% endfor %}
+  {% if layout.skipped %}<dt>Skipped</dt><dd class="dim">{{ layout.skipped | join(", ") }}</dd>{% endif %}</dl>
+  <form method="post" action="/system/comfyui/link" class="row"><button class="btn primary">Link the image models</button> <span class="hint"><code>mnm comfyui</code>: links only, inside mnm's models folder.</span></form>
+  <h2 class="sub-head">Add this block to ComfyUI's <code>extra_model_paths.yaml</code></h2>
+  <pre>{{ block }}</pre><button type="button" class="btn copy" data-copy="{{ block }}" onclick="copyText(this)">Copy block</button>
+  <p class="hint"><code>mnm comfyui --write &lt;ComfyUI folder&gt;</code> merges it into the file for you (it keeps a <code>.bak</code>); that writes outside mnm's folders, so it stays in {{ platform().terminal }}.</p>
+</section>
+{% endblock %}

@@ -1,0 +1,11 @@
+{
+  "_comment": "Third-party node classes that send their work to a service outside mnm's sandboxed ComfyUI (no internet, nothing listening beside it); ComfyUI's own partner nodes are partner_nodes.json. Each row read from the pack's code.",
+  "nodes": {
+    "AceStepText2MusicServer": {
+      "pack": "ACE-Step-ComfyUI",
+      "service": "api.acemusic.ai (with an API key it saves to a file) or an ACE-Step server on 127.0.0.1:8002",
+      "read": "ACE-Step-ComfyUI 0.0.5 from the Registry, 2026-10-31",
+      "note": "its other nodes only feed that one"
+    }
+  }
+}

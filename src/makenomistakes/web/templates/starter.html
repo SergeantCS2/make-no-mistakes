@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% set tab = "add" %}
+{% block title %}Get started · makenomistakes{% endblock %}
+{% block subtabs %}<a href="/add">Add model</a><a href="/starter" aria-current="page">Get started</a>{% endblock %}
+{% block body %}
+{% set gpu = snapshot.gpu %}
+<section class="panel double" aria-labelledby="st-title">
+  <h1 class="panel-title" id="st-title">Get started</h1>
+  <p class="hint">Models that fit {% if gpu %}this card ({{ gpu.name }}, {{ gib(gpu.vram_total_bytes) }}){% else %}a card this size (the GPU could not be read, so every model is listed){% endif %}, one press each. Every one is an ordinary add: planned for this machine, saved, then downloaded in the background (the Status tab shows the progress). For anything else, <a href="/add">paste a Hugging Face, Civitai or LM Studio link</a>.</p>
+  {% if busy_note %}<div class="warnline">{{ busy_note | ticks }}</div>{% endif %}
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>What</th><th>Instances</th><th>Download</th><th>VRAM</th><th><span class="sr-only">Actions</span></th></tr></thead>
+    <tbody>
+    {% for s in offered %}
+    <tr>
+      <td data-label="What"><strong class="hi">{{ s.title }}</strong><span class="note wide">{{ s.what }}</span>{% if s.note %}<span class="note wide warnline">{{ s.note }}</span>{% endif %}</td>
+      <td data-label="Instances" class="nowrap">{% for item in s.items %}{% if item.name in have %}<a href="/instances/{{ item.name }}">{{ item.name }}</a>{% else %}{{ item.name }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}</td>
+      <td data-label="Download" class="nowrap">~{{ "%.1f" | format(s.download_gb) }} GB</td>
+      <td data-label="VRAM">{{ floors[s.key] }}{% if short[s.key] %}<span class="note wide"><span class="st st-bad">{{ short[s.key] }}</span></span>{% endif %}</td>
+      <td class="actions">
+        {% if s.items | rejectattr("name", "in", have) | list %}
+        <form class="inline" method="post" action="/starter/{{ s.key }}"><button class="btn primary">Add</button></form>
+        {% else %}<span class="st st-ok"><span class="g" aria-hidden="true">✓</span>added</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% if hidden %}<p class="hint">Not offered on this card (too little VRAM): {% for s in hidden %}{{ s.title }} ({{ floors[s.key] }}){% if not loop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
+</section>
+{% if apps %}
+<section class="panel double" aria-labelledby="sa-title">
+  <h2 class="panel-title" id="sa-title">Workspace apps <span class="hint">optional · mnm setup asks the same</span></h2>
+  <p class="hint">Apps that work with your models: installed here at the versions mnm was tested with, on 127.0.0.1 only (a Windows browser reaches them through localhost), or connected from another machine. Installing runs on System → Apps, where its lines stream. OpenCode and OpenHands work in your projects folder, <code>{{ apps.projects }}</code> (<code>mnm setup</code> asks for another, or set <code>MNM_PROJECTS_DIR</code> in the secrets file).</p>
+  {% if apps.projects_problem %}<div class="error">MNM_PROJECTS_DIR: {{ apps.projects_problem }} OpenCode and OpenHands will not install until the secrets file names another (<code>mnm setup</code> asks).</div>{% endif %}
+  {% if apps.error %}<div class="error">{{ apps.error }}</div>{% endif %}
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>App</th><th>What</th><th>State</th><th><span class="sr-only">Actions</span></th></tr></thead>
+    <tbody>{% for row in apps.offers %}{% set s = row.status %}<tr>
+      <td data-label="App" class="hi nowrap">{{ row.offer.label }}</td>
+      <td data-label="What"><span class="note wide">{{ row.paragraph }}</span>
+        {% if row.remote %}<details><summary>On another machine</summary>{% for line in row.remote %}<p class="hint">{{ line }}</p>{% endfor %}</details>{% endif %}</td>
+      <td data-label="State" class="nowrap">{{ s.state }}{% if s.installed and s.definition.url %}<br><a href="{{ s.definition.url }}">{{ s.definition.url }}</a>{% endif %}</td>
+      <td class="actions">
+        {% if row.offer.installs %}
+          {% if not s.installed %}<form class="inline" method="post" action="/system/apps/{{ s.app.value }}/install" onsubmit='return confirm({{ ("Install " ~ s.label ~ " " ~ s.pinned ~ " here? It downloads its pinned build and starts it.") | tojson }})'><button class="btn primary">Install here</button></form>
+          {% else %}<a class="btn" href="/system/apps">System → Apps</a>{% endif %}
+        {% elif s.app.value == "goose" %}<form class="inline" method="post" action="/starter/apps/goose"><button class="btn">Write its file</button></form>
+        {% else %}<a class="btn" href="/starter/odysseus">Connect</a>{% endif %}
+      </td>
+    </tr>{% if s.app.value == "librechat" and s.installed %}<tr><td colspan="4">
+      <form method="post" action="/starter/apps/librechat/user" class="inline">
+        <label>First account: email <input name="email" type="email" required autocomplete="off"></label>
+        <label>password <input name="password" type="password" minlength="8" required autocomplete="new-password"></label>
+        <label>again <input name="again" type="password" minlength="8" required autocomplete="new-password"></label>
+        <button class="btn">Make the account</button>
+      </form>
+      <span class="hint">Registration is off; LibreChat's own script makes it. mnm never keeps the password.</span>
+    </td></tr>{% elif s.app.value == "open-webui" and s.installed %}<tr><td colspan="4">
+      <span class="hint">First account: open <a href="{{ s.definition.url }}">{{ s.definition.url }}</a> and sign up now. The first account is its admin; sign-up is off for everyone after it.</span>
+    </td></tr>{% endif %}{% endfor %}</tbody>
+  </table></div>
+  {% if not apps.odysseus %}<p class="hint">Odysseus: nothing at ~/odysseus. mnm never installs it; <code>mnm apps connect odysseus</code> links it once it is there.</p>{% endif %}
+</section>
+{% endif %}
+{% endblock %}

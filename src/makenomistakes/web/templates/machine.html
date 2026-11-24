@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% set tab = "system" %}
+{% block title %}Machine · makenomistakes{% endblock %}
+{% block subtabs %}{% include "_system_tabs.html" %}{% endblock %}
+{% block body %}
+<section class="panel double" aria-labelledby="m-title">
+  <h1 class="panel-title" id="m-title">Machine</h1>
+  <p class="hint">The same as <code>mnm machine show</code>: this box as mnm last read it (the router's start, the doctor, <code>mnm ls</code>), and which instances were planned on another box. Card ids stay private here.</p>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  {% if lines %}<pre class="joblog machine-show">{{ lines | join("\n") }}</pre>{% else %}<div class="empty"><h2>No box recorded yet</h2><p><code>mnm doctor</code> or <code>mnm ls</code> reads this one.</p></div>{% endif %}
+</section>
+<section class="panel double" aria-labelledby="a-title">
+  <h2 class="panel-title" id="a-title">Adopt this box</h2>
+  <p class="hint"><code>mnm machine adopt</code>: measures the RAM, plans every instance again for this box (the quant free to change), queues the tunes. It never deletes an instance and never changes the secrets file; an instance that cannot run here is kept as it was. Dry run shows the plans and saves nothing.</p>
+  <form method="post" action="/system/machine/adopt" class="row mt">
+    <input type="hidden" name="dry_run" value="on">
+    <button class="btn">Dry run</button> <span class="hint"><code>mnm machine adopt --dry-run</code></span>
+  </form>
+  <form method="post" action="/system/machine/adopt" class="row mt">
+    <label><input type="checkbox" name="download">{% if planned %} {{ planned.words }}{% if planned.files %} (the last dry run's){% endif %}{% else %} download the files the new plans need (Dry run says how many and their size){% endif %}</label>
+    <label><input type="checkbox" name="tune" checked> queue tunes</label>
+    <button class="btn primary">Adopt</button>
+  </form>
+  {% if job %}{% include "_job.html" %}{% endif %}
+  {% if last_table %}<h3 class="mt">The last adoption</h3><pre class="joblog machine-show">{{ last_table }}</pre>{% endif %}
+</section>
+{% endblock %}

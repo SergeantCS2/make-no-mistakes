@@ -1,0 +1,9 @@
+{# The Why panel's inside: `mnm why`'s words (`why.explain`), planned again for this box; nothing saved. #}
+{% set base = "/instances/" ~ recipe.name %}
+<p>{{ why.runs | ticks }}</p>
+{% if why.problem %}<div class="error" role="alert">{{ why.problem | ticks }}</div>{% else %}
+{% for title, lines in (("Why", why.reasons), ("Now", why.today), ("More room", why.more)) %}
+<h3 class="sub-head">{{ title }}</h3>
+<ul>{% for line in lines %}<li{% if line.startswith("  ") %} class="sub"{% endif %}>{{ line | ticks }}</li>{% endfor %}</ul>
+{% endfor %}{% endif %}
+<p><button type="button" class="btn quiet" hx-get="{{ base }}/why" hx-target="#why-body" hx-swap="innerHTML" hx-indicator="#why-wait" hx-disabled-elt="this">Explain again</button> <span id="why-wait" class="htmx-indicator hint" role="status">Planning again…</span></p>

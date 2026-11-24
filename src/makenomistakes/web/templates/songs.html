@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% set tab = "runs" %}
+{% block title %}Songs · makenomistakes{% endblock %}
+{% block subtabs %}<a href="/runs">All runs</a><a href="/pipelines">Pipelines</a><a href="/songs" aria-current="page">Songs</a>{% endblock %}
+{% block body %}
+<section class="panel double" aria-labelledby="sg-title">
+  <h1 class="panel-title" id="sg-title">Song <span class="hint">mnm song new</span></h1>
+  <p class="hint">A theme becomes lyrics (the desk's <code>chat</code>, or the instance you pick), the song model sings {{ default_candidates }} candidates, you pick one, the separators split it into six stems, the stems are summed into a mix, and an export folder holds the mix (WAV 24-bit 48 kHz and FLAC), the stems, a REAPER project, the provenance and a disclosure text. It stops at the lyrics and at the pick unless you tick <em>straight through</em>. The router loads one model per stage and parks the one before when the card needs it.</p>
+  {% if problem %}<div class="warnline">{{ problem }}</div>{% endif %}
+  <form method="post" action="/songs" enctype="multipart/form-data" class="stack tight">
+    <label for="theme">The theme</label>
+    <textarea id="theme" name="theme" rows="3" maxlength="4000" class="wide" required placeholder="A harbour town at night, the boats coming home."></textarea>
+    <div class="role-grid">
+      <label>Length <input type="text" name="length" value="30s" size="6" pattern="[0-9ms. ]+" title="30s, 3m or 2m30s"></label>
+      <label>Candidates <input type="number" name="candidates" value="{{ default_candidates }}" min="1" max="{{ max_candidates }}"></label>
+      <label>Tier <select name="tier"><option value="fast">fast (to explore)</option><option value="full">full (for the keeper)</option></select></label>
+      <label>Lyrics by <select name="chat"><option value="chat">the desk's chat</option>{% for name in chats %}<option value="{{ name }}">{{ name }}</option>{% endfor %}</select></label>
+    </div>
+    <label>Style <span class="hint">(optional: the song model's tags; else the chat writes them)</span> <input type="text" name="tags" maxlength="600" class="wide" placeholder="indie folk, warm, acoustic guitar, 90 bpm, soft female vocal"></label>
+    <details><summary>Your own lyrics or recording</summary>
+      <label>Lyrics <span class="hint">(a header like [Verse] or [Chorus] above each section's lines; no lyrics are written for you)</span><textarea name="lyrics" rows="6" maxlength="20000" class="wide"></textarea></label>
+      <div class="role-grid">
+        <label>Recording <span class="hint">(up to 32 MiB here; a longer one with <code>mnm song new --recording</code>)</span><input type="file" name="recording" accept="audio/*"></label>
+        <label>Used as <select name="use"><option value="">(no recording)</option>{% for use in uses %}<option value="{{ use }}">{{ use }}</option>{% endfor %}</select></label>
+      </div>
+    </details>
+    {% if voices %}<div class="role-grid">
+      <label>Sung in <select name="voice"><option value="">the song model's own voice</option>{% for name in voices %}<option value="{{ name }}">{{ name }}</option>{% endfor %}</select></label>
+      <label>Semitones <input type="number" name="shift" value="0" min="-12" max="12" size="3"></label>
+    </div>{% endif %}
+    <label class="check"><input type="checkbox" name="auto" value="true"> Straight through: no stop at the lyrics or the pick (the highest-scoring candidate is taken, or the first without the studio tools)</label>
+    <div><button class="btn primary">Make the song</button></div>
+  </form>
+</section>
+<section class="panel double" aria-labelledby="sr-title">
+  <h2 class="panel-title" id="sr-title">Song runs</h2>
+  {% if not runs %}<p class="hint">None yet.</p>{% endif %}
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>Run</th><th>Theme</th><th>State</th><th>Started</th></tr></thead>
+    <tbody>{% for run in runs %}<tr>
+      <td><a class="inst" href="/songs/{{ run.id }}">{{ run.id }}</a></td>
+      <td>{{ run.prompt | truncate(80) }}</td>
+      <td>{{ run.state.value }}{% if run.waiting_at %} at {{ run.waiting_at }}{% endif %}{% if run.interrupted %} (interrupted){% endif %}</td>
+      <td class="hint">{{ ago(run.created_at) }}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% endblock %}

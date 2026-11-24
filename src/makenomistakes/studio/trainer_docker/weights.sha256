@@ -1,0 +1,12 @@
+# Applio's weights, fetched once at build from huggingface.co/IAHispano/Applio (MIT) at the
+# revision the Dockerfile names, each checked by sha256 (read 2026-11-01). Columns: sha256,
+# the path under Resources/ on the Hub, the path under /opt/applio in the image.
+3b2c44035e782c4b14ddc0bede9e2f4a724d025cd073f736d4f43708453adfcb  pretrained_v2/f0G40k.pth  rvc/models/pretraineds/hifi-gan/f0G40k.pth
+6b6ab091e70801b28e3f41f335f2fc5f3f35c75b39ae2628d419644ec2b0fa09  pretrained_v2/f0D40k.pth  rvc/models/pretraineds/hifi-gan/f0D40k.pth
+b5d51f589cc3632d4eae36a315b4179397695042edc01d15312e1bddc2b764a4  pretrained_v2/f0G48k.pth  rvc/models/pretraineds/hifi-gan/f0G48k.pth
+2269b73c7a4cf34da09aea99274dabf99b2ddb8a42cbfb065fb3c0aa9a2fc748  pretrained_v2/f0D48k.pth  rvc/models/pretraineds/hifi-gan/f0D48k.pth
+2332611297b8d88c7436de8f17ef5f07a2119353e962cd93cda5806d59a1133d  pretrained_v2/f0G32k.pth  rvc/models/pretraineds/hifi-gan/f0G32k.pth
+bd7134e7793674c85474d5145d2d982e3c5d8124fc7bb6c20f710ed65808fa8a  pretrained_v2/f0D32k.pth  rvc/models/pretraineds/hifi-gan/f0D32k.pth
+6d62215f4306e3ca278246188607209f09af3dc77ed4232efdd069798c4ec193  predictors/rmvpe.pt  rvc/models/predictors/rmvpe.pt
+d8dd400e054ddf4e6be75dab5a2549db748cc99e756a097c496c099f65a4854e  embedders/contentvec/pytorch_model.bin  rvc/models/embedders/contentvec/pytorch_model.bin
+2ddde063b795d38d9051a7215a092fecf4cfe148b54251e38de51d88d356898b  embedders/contentvec/config.json  rvc/models/embedders/contentvec/config.json

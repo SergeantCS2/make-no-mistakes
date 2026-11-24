@@ -1,0 +1,17 @@
+{# The readings graph (`nightly/graph.py`): decode tok/s over time, one line per engine
+   build; a point's <title> is its hover. #}
+{% macro speed_graph(g) -%}
+<figure class="graph">
+  <svg viewBox="0 0 {{ g.width }} {{ g.height }}" role="img" aria-label="{{ g.summary }}">
+    {% for t in g.y_ticks %}<line class="grid" x1="{{ g.left }}" x2="{{ g.plot_right }}" y1="{{ '%.1f' | format(t.at) }}" y2="{{ '%.1f' | format(t.at) }}"></line><text class="tick" x="{{ g.left - 6 }}" y="{{ '%.1f' | format(t.at + 4) }}" text-anchor="end">{{ t.label }}</text>{% endfor %}
+    {% for t in g.x_ticks %}<text class="tick" x="{{ '%.1f' | format(t.at) }}" y="{{ g.height - 6 }}" text-anchor="{{ 'start' if loop.first else 'end' }}">{{ t.label }}</text>{% endfor %}
+    {% for s in g.series | reverse %}
+    <polyline class="line{{ ' newest' if s.newest else '' }}" points="{{ s.path }}"{% if s.dash %} stroke-dasharray="{{ s.dash }}"{% endif %}></polyline>
+    {% for p in s.points %}<g class="pt{{ ' newest' if s.newest else '' }}"><circle class="hit" cx="{{ '%.1f' | format(p.x) }}" cy="{{ '%.1f' | format(p.y) }}" r="9"></circle><circle class="dot" cx="{{ '%.1f' | format(p.x) }}" cy="{{ '%.1f' | format(p.y) }}" r="3.5"></circle><title>{{ p.title }}</title></g>{% endfor %}
+    {% endfor %}
+  </svg>
+  <figcaption class="legend"><span class="hint">tok/s · hover a point for its date, build and settings</span>
+    {% for s in g.series %}<span class="key"><svg width="26" height="8" aria-hidden="true"><line class="line{{ ' newest' if s.newest else '' }}" x1="1" x2="25" y1="4" y2="4"{% if s.dash %} stroke-dasharray="{{ s.dash }}"{% endif %}></line></svg>build {{ s.build }}{% if s.newest %} (newest){% endif %}</span>{% endfor %}
+  </figcaption>
+</figure>
+{%- endmacro %}

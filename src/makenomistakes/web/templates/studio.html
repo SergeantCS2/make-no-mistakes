@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% set tab = "system" %}
+{% block title %}Studio · makenomistakes{% endblock %}
+{% block subtabs %}{% include "_system_tabs.html" %}{% endblock %}
+{% block body %}
+<section class="panel double" aria-labelledby="st-title">
+  <h1 class="panel-title" id="st-title">Studio tools <span class="hint">mnm studio install · status · rollback · uninstall</span></h1>
+  <p class="hint">Optional: an image mnm builds on this machine that scores a song's candidates, maps the picked take's beats, tempo and parts, all on the CPU. Each job runs with no network, read-only, as you, over one run's folder. Nothing is downloaded until you press Install; without it a song still sings, splits and exports (no scores, REAPER's default tempo).</p>
+  {% if job and (job.running or job.error) %}{% include "_job.html" %}{% endif %}
+  {% if problem %}<p class="warnline">{{ problem }}</p>{% endif %}
+  <dl class="kv">
+    {% if ledger %}
+    <dt>Image</dt><dd><code>{{ ledger.image }}</code>{% if ledger.size_bytes %} · {{ "%.1f" | format(ledger.size_bytes / 1e9) }} GB{% endif %} · built {{ ago(ledger.built_at) }}{% if ledger.previous %} <span class="hint">· before it: <code>{{ ledger.previous }}</code></span>{% endif %}</dd>
+    {% if ledger.versions %}<dt>Carries</dt><dd>{% for name, v in ledger.versions | dictsort %}{{ name }} {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}</dd>{% endif %}
+    {% if ledger.image != current %}<dt>This mnm</dt><dd class="warnline">builds <code>{{ current }}</code>: Install builds it (the one in use stays until then).</dd>{% endif %}
+    {% else %}
+    <dt>State</dt><dd>not installed</dd>
+    {% endif %}
+    <dt>What it does</dt><dd><ul class="files">{% for line in carries %}<li>{{ line }}</li>{% endfor %}</ul></dd>
+  </dl>
+  <div class="actions">
+    <form class="inline" method="post" action="/system/studio/install" onsubmit='return confirm({{ ("Build the studio tools here? About " ~ ("%.0f" | format(image_gib)) ~ " GB on disk and 10-20 minutes.") | tojson }})'><button class="btn primary"{% if job and job.running %} disabled{% endif %}>{% if ledger %}Install again{% else %}Install{% endif %}</button></form>
+    {% if ledger and ledger.previous %}<form class="inline" method="post" action="/system/studio/rollback"><button class="btn"{% if job and job.running %} disabled{% endif %}>Roll back</button></form>{% endif %}
+    {% if ledger %}<form class="inline" method="post" action="/system/studio/uninstall" onsubmit='return confirm({{ "Remove the studio tools images? The runs keep their scores and maps." | tojson }})'><button class="btn danger"{% if job and job.running %} disabled{% endif %}>Uninstall</button></form>{% endif %}
+    <span class="hint">about {{ "%.0f" | format(image_gib) }} GB, from PyPI, PyTorch's index, Hugging Face and CPJKU's cloud, every file checked by sha256</span>
+  </div>
+</section>
+
+<section class="panel double" aria-labelledby="sg-title">
+  <h2 class="panel-title" id="sg-title">Stages <span class="hint">mnm studio stage</span></h2>
+  <p class="hint">Every stage of a song is a row; the registry's model plays it until you pick an instance (<code>mnm studio stage song fast=&lt;instance&gt;</code>). The tools' stages are played by the image above.</p>
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>Stage</th><th>Tier</th><th>Plays it</th><th>Registry's model</th><th>Licence</th></tr></thead>
+    <tbody>{% for row, tier, names, words in rows %}<tr>
+      <td data-label="Stage" class="hi">{{ row.label }}</td><td data-label="Tier">{{ tier }}</td>
+      <td data-label="Plays it">{% if row.host == "tool" and not names %}{% if ledger %}the studio tools{% else %}<span class="dim">the studio tools (not installed)</span>{% endif %}{% elif names %}{% for name in names %}{% if name.startswith(workflow_pick) %}the ComfyUI workflow <a href="/comfy/{{ name[workflow_pick | length:] }}">{{ name[workflow_pick | length:] }}</a>{% else %}<a href="/instances/{{ name }}">{{ name }}</a>{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}<span class="dim">not added: <code>mnm add</code> the registry's</span>{% endif %}</td>
+      <td data-label="Registry's model">{{ words }}</td><td data-label="Licence">{{ row.licence }} <span class="hint">(commercial: {{ row.commercial }})</span></td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+
+<section class="panel double" aria-labelledby="sm-title">
+  <h2 class="panel-title" id="sm-title">Models <span class="hint">mnm studio models</span></h2>
+  <p class="hint">Every studio model against this box now. One stage runs at a time and audio.cpp offloads nothing, so each model needs its room alone. {{ models.room }}</p>
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>Model</th><th>Stage</th><th>Needs</th><th>This box</th><th>Smallest card</th><th>Work a second of audio</th></tr></thead>
+    <tbody>{% for row in models.rows %}<tr>
+      <td data-label="Model" class="hi">{{ row.rung.label }}{% if not row.rung.reference %} <span class="hint">(no package yet)</span>{% endif %}</td>
+      <td data-label="Stage">{{ row.rung.stage }}</td><td data-label="Needs">{{ row.needs }}</td>
+      <td data-label="This box">{% if row.holds %}{{ row.here }}{% else %}<span class="dim">{{ row.here }}</span>{% endif %}</td>
+      <td data-label="Smallest card">{{ row.card }}</td><td data-label="Work a second of audio">{{ row.time }}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% endblock %}

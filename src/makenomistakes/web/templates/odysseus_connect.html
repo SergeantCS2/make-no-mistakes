@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% set tab = "add" %}
+{% block title %}Connect Odysseus · makenomistakes{% endblock %}
+{% block subtabs %}<a href="/add">Add model</a><a href="/starter" aria-current="page">Get started</a>{% endblock %}
+{% block body %}
+<section class="panel double" aria-labelledby="oc-title">
+  <h1 class="panel-title" id="oc-title">Connect Odysseus <span class="hint">{{ link.folder }}</span></h1>
+  <p class="hint">Odysseus is yours: mnm never installs it. It writes only its <code>.env</code> lines (a copy of yours kept as <code>.env.before-mnm</code>), then runs <code>docker compose up -d</code> in its folder, which recreates only the containers whose settings changed. Its endpoints and MCP Tool Server are forms in its own Settings, below.</p>
+  {% if job %}{% include "_job.html" %}{% endif %}
+  {% for line in link.lines %}<p class="hint">{{ line }}</p>{% endfor %}
+  {% if link.seen is none %}<div class="warnline">{{ link.problem }}</div>
+  {% elif not link.seen.diff %}<p>{{ link.seen.path }} already says this: nothing to write.</p>
+  {% else %}
+  <h2 class="sub-head">{{ link.seen.path }} would change</h2>
+  <pre>{{ link.seen.diff }}</pre>
+  <form method="post" action="/starter/odysseus" onsubmit='return confirm({{ "Write it and restart Odysseus?" | tojson }})'><button class="btn primary">Write it and restart Odysseus</button></form>
+  {% endif %}
+  {% for label, text in link.blocks %}<h2 class="sub-head">{{ label }}</h2><pre>{{ text }}</pre>{% endfor %}
+</section>
+{% endblock %}

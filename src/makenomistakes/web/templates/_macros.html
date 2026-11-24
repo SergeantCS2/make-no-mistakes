@@ -1,0 +1,83 @@
+{# The pieces several pages share: an instance's start/stop options, the paste-into cards,
+   the consumer switcher. #}
+
+{% macro instance_actions(r, status, v, back, wide=false) -%}
+{% set room_title = "Stops " ~ (v.stop_first | join(", ")) ~ " first. " ~ v.note %}
+{% if status.running %}
+<form class="inline" method="post" action="/instances/{{ r.name }}/stop">{% if back %}<input type="hidden" name="next" value="{{ back }}">{% endif %}<button class="btn">Stop</button></form>
+{% elif v.warns %}
+{% if v.stop_first %}<form class="inline" method="post" action="/instances/{{ r.name }}/start">{% if back %}<input type="hidden" name="next" value="{{ back }}">{% endif %}<input type="hidden" name="make_room" value="on"><button class="btn primary" title="{{ room_title }}">{% if wide %}Stop {{ v.stop_first | join(", ") }} and start{% else %}Make room and start{% endif %}</button></form>{% endif %}
+<form class="inline" method="post" action="/instances/{{ r.name }}/start" onsubmit='return confirm({{ (v.note ~ " Start anyway?") | tojson }})'>{% if back %}<input type="hidden" name="next" value="{{ back }}">{% endif %}<input type="hidden" name="anyway" value="on"><button class="btn danger" title="{{ v.note }}">Start anyway</button></form>
+{% else %}
+<form class="inline" method="post" action="/instances/{{ r.name }}/start">{% if back %}<input type="hidden" name="next" value="{{ back }}">{% endif %}<button class="btn primary" title="{{ v.note }}">Start</button></form>
+{% endif %}
+{% if not status.running and not status.error and status.files_present and not r.off %}
+<form class="inline" method="post" action="/instances/{{ r.name }}/stop">{% if back %}<input type="hidden" name="next" value="{{ back }}">{% endif %}<button class="btn quiet" title="Parked: the next request would load it. Switch it off and the router refuses it until you start it.">Switch off</button></form>
+{% endif %}
+{%- endmacro %}
+
+{% macro switcher(label, choices, current, base, anchor="") -%}
+<div class="switch" role="group" aria-label="{{ label }}"><span class="k">{{ label }}</span>
+{% for c, name in choices.items() %}{% if c == current %}<strong aria-current="true">{{ name }}</strong>{% else %}<a href="{{ base }}?consumer={{ c.value }}{{ anchor }}">{{ name }}</a>{% endif %}{% endfor %}
+</div>
+{%- endmacro %}
+
+{% macro cards(urls) -%}
+{% for u in urls %}
+<div class="card">
+  <div class="label">{{ u.label }}</div>
+  {% if u.url %}<div class="url">{% if u.opens_in_browser %}<a href="{{ u.url }}" target="_blank" rel="noopener">{{ u.url }}</a>{% else %}<code>{{ u.url }}</code><button type="button" class="btn copy" data-copy="{{ u.url }}" onclick="copyText(this)">Copy</button>{% endif %}</div>{% endif %}
+  <div class="hint">{{ u.note | ticks }}</div>
+  {% if u.snippet %}<pre>{{ u.snippet }}</pre><button type="button" class="btn copy" data-copy="{{ u.snippet }}" onclick="copyText(this)">Copy block</button>{% endif %}
+</div>
+{% endfor %}
+{%- endmacro %}
+
+{# A test's figures: its seconds, then its numbers, each under its own word (`view.try_figures`). #}
+{% macro figures(shown) -%}
+<div class="figures"><div><b>{{ "%.2f" | format(shown.seconds) }}</b><span>seconds</span></div>{% for value, label in try_figures(shown.numbers) %}<div><b>{{ value }}</b><span>{{ label }}</span></div>{% endfor %}</div>
+{%- endmacro %}
+
+{# One run as a card: what was asked, what came back, its files and its buttons. `back` is
+   the page a delete returns to. #}
+{% macro run_media(run, back, children=[], index=0) -%}
+<article class="run-card{% if run.parent %} run-child{% endif %}" id="run-{{ run.id }}">
+  <header class="run-head">
+    <span class="hi">{{ run.target }}</span> <span class="hint">{% if run.role %}{{ run.role }}{% if index %} {{ index }}{% endif %} · {% endif %}{{ run.kind.value }} · {{ ago(run.created_at) }}{% if run.seconds %} · {{ "%.1f" | format(run.seconds) }} s{% endif %}</span>
+    {% if run.interrupted %}<span class="st st-bad"><span class="g" aria-hidden="true">✖</span>interrupted</span>
+    {% elif run.state.value == "running" %}<span class="st st-busy st-warn"><span class="g" aria-hidden="true">◔</span>running</span>{% elif run.state.value == "failed" %}<span class="st st-bad"><span class="g" aria-hidden="true">✖</span>failed</span>{% endif %}
+  </header>
+  {% if run.prompt %}<p class="run-prompt">{{ run.prompt | truncate(300) }}</p>{% endif %}
+  {% if run.numbers %}<p class="hint">{% for value, label in run_figures(run.numbers) %}{{ value }} {{ label }}{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+  {% if run.error %}<p class="error">{{ run.error }}</p>{% endif %}
+  {% if run.files_removed %}<p class="hint">Files deleted (the record stays).</p>
+  {% elif run.kind.value == "pipeline" and not run.parent %}{# a run under one (a song's mix) shows its files #}
+  {% set is_song = run.target == "song" %}
+  <p><a class="btn" href="/{{ 'songs' if is_song else 'pipelines' }}/{{ run.id }}">{{ "Open the song" if is_song else "Open the pipeline" }}</a> <span class="hint">{{ run.state.value }}{% if run.waiting_at %}: waiting for you{% endif %} · {{ run.outputs | length }} files · {{ size_words(run.size) }}</span></p>
+  {% if is_song and "mix.wav" in run.outputs | map(attribute="name") | list %}<div class="media"><audio src="/runs/{{ run.id }}/files/mix.wav" controls preload="none"></audio></div>
+  {% elif not is_song and run.state.value == "done" %}<div class="media"><video src="/runs/{{ run.id }}/files/{{ (run.files | map(attribute="name") | select("in", film_names) | first) or "film.webm" }}" controls playsinline preload="metadata"></video></div>{% endif %}
+  {% else %}
+  {% for f in run.outputs %}
+  <div class="media">
+    {% set src = "/runs/" ~ run.id ~ "/files/" ~ (f.name | urlencode) %}
+    {% if f.kind.value == "image" %}<a href="{{ src }}" target="_blank" rel="noopener"><img src="{{ src }}" alt="{{ run.prompt | default(run.target, true) | truncate(80) }}" loading="lazy"></a>
+    {% elif f.kind.value == "video" %}<video src="{{ src }}" controls loop muted playsinline preload="metadata"></video>
+    {% elif f.kind.value == "audio" %}<audio src="{{ src }}" controls preload="none"></audio>
+    {% elif f.kind.value == "text" %}<p class="hi" data-type>{{ run.answer }}</p>{% endif %}
+    <div class="run-file"><a href="{{ src }}" download>{{ f.name }}</a> <span class="hint">{{ size_words(f.size) }}</span>
+      <form class="inline" method="post" action="/runs/{{ run.id }}/files/{{ f.name | urlencode }}/delete"><input type="hidden" name="back" value="{{ back }}"><button class="btn quiet" title="Delete this file">Delete file</button></form></div>
+  </div>
+  {% endfor %}
+  {% endif %}
+  <div class="actions">
+    {% set candidates = children | selectattr("role", "equalto", "candidate") | list %}
+    {% if run.kind.value in ("instance", "workflow") and run.state.value != "running" %}<form class="inline" method="post" action="/runs/{{ run.id }}/again"><input type="hidden" name="back" value="{{ back }}"><button class="btn" title="{% if candidates and run.kind.value == 'instance' %}{{ candidates | length }} new candidates from the same tags and lyrics, under a new run{% else %}The same {{ 'settings, seed' if run.kind.value == 'workflow' else 'prompt' }} and inputs again{% endif %}">{% if candidates and run.kind.value == "instance" %}{{ candidates | length }} new candidates{% else %}Run again{% endif %}</button>{% if run.kind.value == "workflow" %} <button class="btn" name="new_seed" value="yes" title="The same settings with a new random seed">New seed</button>{% endif %}</form>{% endif %}
+    {% if run.state.value != "running" %}<form class="inline" method="post" action="/runs/{{ run.id }}/delete" onsubmit='return confirm({{ ("Delete this run and its files (" ~ size_words(run.size) ~ ")?") | tojson }})'><input type="hidden" name="back" value="{{ back }}"><button class="btn danger">Delete run</button></form>{% endif %}
+  </div>
+  {% if children %}
+  <section class="run-children" aria-label="{{ children | length }} runs made under this one">
+    {% for child in children %}{{ run_media(child, back, [], loop.index) }}{% endfor %}
+  </section>
+  {% endif %}
+</article>
+{%- endmacro %}

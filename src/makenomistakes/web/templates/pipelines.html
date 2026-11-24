@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% set tab = "runs" %}
+{% block title %}Pipelines · makenomistakes{% endblock %}
+{% block subtabs %}<a href="/runs">All runs</a><a href="/pipelines" aria-current="page">Pipelines</a><a href="/songs">Songs</a><a href="/runs#clean">Clean up</a>{% endblock %}
+{% block body %}
+<section class="panel double" aria-labelledby="pl-title">
+  <h1 class="panel-title" id="pl-title">Short film <span class="hint">mnm pipeline run</span></h1>
+  <p class="hint">An idea becomes a shot list (your chat model), a still per shot (your image model, at the video's size), the lines (your voice), a clip per still (your video model) and one film. It stops after the shot list and after the stills so you can change them, unless you tick <em>straight through</em>. The router loads each model in turn; on 12 GB the video model runs alone, last.</p>
+  {% if not choices.chat or not choices.image or not choices.video %}
+  <div class="warnline">A film needs a chat, an image and a video instance{% for role in ("chat", "image", "video") if not choices[role] %} (no {{ role }} instance yet){% endfor %}: add them first (Add → Get started has one of each).</div>
+  {% endif %}
+  <form method="post" action="/pipelines" class="stack tight">
+    <label for="idea">The idea</label>
+    <textarea id="idea" name="idea" rows="3" maxlength="4000" class="wide" required placeholder="A lighthouse keeper finds a message in a bottle."></textarea>
+    <div class="role-grid">
+      <label>Shots <input type="number" name="shots" value="3" min="1" max="{{ max_shots }}"></label>
+      <label>Style <input type="text" name="style" value="cinematic, soft light" maxlength="300"></label>
+      {% for role in ("chat", "image", "video", "voice") %}
+      <label>{{ role }}<br><select name="{{ role }}"{% if role != "voice" %} required{% endif %}>
+        {% if role == "voice" %}<option value="">(none: a silent film)</option>{% endif %}
+        {% for name in choices[role] %}<option value="{{ name }}">{{ name.replace("comfy:", "workflow: ") }}</option>{% endfor %}
+      </select></label>
+      {% endfor %}
+    </div>
+    <label class="check"><input type="checkbox" name="auto" value="true"> Straight through: no stop at the shot list or the stills</label>
+    <div><button class="btn primary">Make the film</button></div>
+  </form>
+</section>
+<section class="panel double" aria-labelledby="pr-title">
+  <h2 class="panel-title" id="pr-title">Pipeline runs</h2>
+  {% if not runs %}<p class="hint">None yet.</p>{% endif %}
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>Run</th><th>Idea</th><th>State</th><th>Started</th></tr></thead>
+    <tbody>{% for run in runs %}<tr>
+      <td><a class="inst" href="/{{ 'songs' if run.target == 'song' else 'pipelines' }}/{{ run.id }}">{{ run.id }}</a></td>
+      <td>{{ run.prompt | truncate(80) }}</td>
+      <td>{{ run.state.value }}{% if run.waiting_at %} at {{ labels[run.waiting_at] | lower }}{% endif %}{% if run.interrupted %} (interrupted){% endif %}</td>
+      <td class="hint">{{ ago(run.created_at) }}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% endblock %}

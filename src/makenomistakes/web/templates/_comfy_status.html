@@ -1,0 +1,25 @@
+<section class="panel" id="comfyui" aria-labelledby="comfy-title">
+  <h2 class="panel-title" id="comfy-title">ComfyUI</h2>
+  {% if comfy.error %}
+  <p><span class="st st-bad"><span class="g" aria-hidden="true">✕</span>unreadable</span> {{ comfy.error }}</p>
+  {% elif comfy.unknown %}
+  <p><span class="st st-bad"><span class="g" aria-hidden="true">?</span>unknown</span> Docker could not be asked: {{ comfy.docker }}</p>
+  <p class="hint">Running or not cannot be told until Docker answers; <code>mnm doctor</code> says why.</p>
+  {% elif comfy.running %}
+  <p><span class="st {{ 'st-warn' if comfy.busy else 'st-ok' }}"><span class="g" aria-hidden="true">●</span>{{ "making a run" if comfy.busy else "running" }}</span>
+    {% if comfy.held_bytes is not none %}holding <b class="hi" title="{{ comfy.held_method }}">about {{ gib(comfy.held_bytes) }}</b> of the card{% else %}not answering{% endif %}</p>
+  {% if comfy.held_method %}<p class="hint">{{ comfy.held_method }}.</p>{% endif %}
+  <dl class="kv">
+    <dt>Now</dt><dd>{{ comfy.doing() }}{% if comfy.run %} · <a href="/runs">Runs</a> has it{% endif %}</dd>
+  </dl>
+  {% if comfy_said %}<p class="okline" role="status">{{ comfy_said }}</p>{% endif %}
+  <div class="actions">
+    <form class="inline" method="post" action="/comfyui/stop" onsubmit='return confirm({{ ("Stop ComfyUI? Its card is freed at once" ~ (", and the run going now ends unfinished" if comfy.busy else "") ~ ". The next workflow run starts it again.") | tojson }})'><button class="btn danger">Stop ComfyUI</button></form>
+    <form class="inline" method="post" action="/comfyui/free"><button class="btn"{% if comfy.busy %} disabled title="It frees its card between runs only"{% endif %}>Free VRAM</button></form>
+    <a class="btn quiet" href="/comfy">Workflows</a>
+  </div>
+  {% else %}
+  <p><span class="st st-off"><span class="g" aria-hidden="true">○</span>{{ comfy.state.value }}</span> It holds nothing. A workflow run starts it; <a href="/comfy">Workflows</a> has them.</p>
+  {% if comfy_said %}<p class="okline" role="status">{{ comfy_said }}</p>{% endif %}
+  {% endif %}
+</section>

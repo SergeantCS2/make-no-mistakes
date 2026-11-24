@@ -1,0 +1,9 @@
+# Packages no node pack may replace: every pip install in the image runs under
+# these. torch's trio is pinned per ComfyUI pin (resolved for v0.42.1 on 2026-10-21 against
+# PyTorch's cu130 and cpu indexes, which carry the same versions): two installs on different
+# days build the same image, and this file is part of the image tag's hash, so a pin bump is a
+# visible rebuild. `mnm comfyui install` records the versions the build got (the ledger).
+torch==2.14.1
+torchvision==0.29.1
+torchaudio==2.11.0
+numpy<3

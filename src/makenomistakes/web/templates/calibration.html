@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% set tab = "system" %}
+{% block title %}Calibration · makenomistakes{% endblock %}
+{% block subtabs %}{% include "_system_tabs.html" %}{% endblock %}
+{% block body %}
+<section class="panel double" aria-labelledby="c-title">
+  <h1 class="panel-title" id="c-title">Calibration</h1>
+  <p class="hint">{% if found.machine %}This box: <b class="hi">{{ found.machine }}</b>; its readings only.{% else %}This box has not been read yet (<code>mnm machine show</code> reads it): the readings that name no box are used.{% endif %}{% if found.left_out %} {{ found.left_out }}.{% endif %}</p>
+  <p class="hint">Every start and every request the router forwards leaves a reading of what the card really held. A larger measurement raises an estimate at once; a smaller one needs {{ min_readings }} readings and lowers it by at most 10%. Test it on an instance page makes a request.</p>
+  {% if found.empty %}<div class="empty"><h2>No readings on this box yet</h2><p>Start an instance and send it a request.</p></div>
+  {% else %}
+  <h2 class="sub-head">Corrections per engine</h2>
+  {% if found.corrections %}
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>Engine</th><th>Type</th><th>Readings</th><th>Correction</th></tr></thead>
+    <tbody>{% for c in found.corrections %}<tr><td data-label="Engine" class="hi">{{ c.engine.value }}</td><td data-label="Type">{{ c.group.label }}</td><td data-label="Readings">{{ c.readings }}</td><td data-label="Correction"><b class="hi">×{{ "%.2f" | format(c.ratio) }}</b></td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="hint">None yet: a correction needs readings that carry what the card held beside the estimate (a start, or a picture's first request, alone on the card).</p>{% endif %}
+  <h2 class="sub-head">Picture and clip speed per family</h2>
+  {% if found.speeds %}
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>Family</th><th>Readings</th><th>Correction</th></tr></thead>
+    <tbody>{% for c in found.speeds %}<tr><td data-label="Family" class="hi">{{ c.label }}</td><td data-label="Readings">{{ c.readings }}{% if c.with_cold %} ({{ c.cold }} of them first after a start){% elif c.cold %} (and {{ c.cold }} first after a start, not counted){% endif %}{% if c.ignored_words %}; {{ c.ignored_words }}{% endif %}</td><td data-label="Correction"><b class="hi">×{{ "%.2f" | format(c.ratio) }}</b></td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="hint">None yet: a picture or clip through the router leaves its time beside the planner's; a family's s/image and s/clip follow from its readings. Chat speed readings change no estimate.</p>{% endif %}
+  {% if found.scores %}
+  <h2 class="sub-head">Song candidates' scores</h2>
+  <p class="hint">The studio's scorer on each candidate: the mean of enjoyment and production quality, about 1 to 10, relative between candidates of one scorer (never a figure against Suno).</p>
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>Instance</th><th>Scorer</th><th>Candidates</th></tr></thead>
+    <tbody>{% for s in found.scores %}<tr><td data-label="Instance" class="hi">{{ s.instance }}</td><td data-label="Scorer">{{ s.scorer }}</td><td data-label="Candidates">{{ s.words() }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+  {% if found.queues %}
+  <h2 class="sub-head">The router's queue</h2>
+  <p class="hint">{{ queue_caption }}</p>
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>Instance</th><th>Slots</th><th>Requests</th><th>Waited for a slot</th><th>Waited for a load</th><th>llama.cpp's own wait</th><th>Context held</th></tr></thead>
+    <tbody>{% for q in found.queues %}<tr><td data-label="Instance" class="hi">{{ q.name }}</td><td data-label="Slots">{{ q.figures.slots }}</td><td data-label="Requests">{{ q.requests_words() }}</td><td data-label="Slot waits">{{ q.slot_words() }}</td><td data-label="Load waits">{{ q.load_words() }}</td><td data-label="llama.cpp">{{ q.engine_words() }}</td><td data-label="Context">{{ q.context_words() }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+  {% if found.qualities %}
+  <h2 class="sub-head">Quality</h2>
+  <p class="hint">{{ quality_caption }}</p>
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>Instance</th><th>Quant</th><th>Against</th><th>KLD</th><th>Same top token</th><th>PPL</th><th>Decode</th><th>When</th></tr></thead>
+    <tbody>{% for name, s in found.qualities %}{% set c = s.figures.cells %}<tr><td data-label="Instance" class="hi">{{ name }}</td><td data-label="Quant">{{ s.figures.quant }}</td><td data-label="Against">{{ s.figures.reference }} on {{ s.figures.text }}</td><td data-label="KLD">{{ c[0] }}</td><td data-label="Same top">{{ c[1] }}</td><td data-label="PPL">{{ "%.2f" | format(s.figures.ppl) }}</td><td data-label="Decode">{{ c[2] }}</td><td data-label="When">{{ ago(s.at) }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+  <h2 class="sub-head">Readings per instance</h2>
+  {% for name, readings in found.newest.items() %}
+  <details><summary><b class="hi">{{ name }}</b> · {{ readings | length }} newest readings · build {{ readings[-1].build or "unknown" }}{% if found.elsewhere.get(name) %} · {{ found.elsewhere[name] }} on another machine{% endif %}</summary>
+    <div class="table-scroll"><table>
+      <thead><tr><th>When</th><th>Kind</th><th>VRAM</th><th>Estimate</th><th>Load</th><th>Speed</th></tr></thead>
+      <tbody>{% for r in readings | reverse %}<tr><td class="nowrap">{{ r.at.astimezone().strftime("%m-%d %H:%M") }}</td><td>{{ r.kind.value }}</td><td>{{ gib(r.vram_bytes) if r.vram_bytes else "-" }}</td><td>{{ gib(r.estimate_bytes) if r.estimate_bytes else "-" }}</td><td>{{ "%g s" | format(r.load_seconds) if r.load_seconds is not none else "-" }}</td><td>{{ ("%g " | format(r.speed)) ~ r.speed_unit.value if r.speed and r.speed_unit else "-" }}{% if r.speed_ratio is not none %} (est. {{ "%g" | format(r.estimate_seconds) }}){% endif %}{% if r.cold and r.speed %}, first{% endif %}{% if beside(r) %}; {{ beside(r) }}{% endif %}</td></tr>{% endfor %}</tbody>
+    </table></div>
+  </details>
+  {% endfor %}
+  {% endif %}
+  <p class="row mt"><a class="btn primary" href="/system/calibration/export" download>Export JSON</a> <span class="hint"><code>mnm calibration export</code>: every reading and correction in one file, to paste into a chat.</span></p>
+</section>
+{% endblock %}

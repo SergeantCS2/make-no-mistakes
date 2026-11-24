@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en" data-phosphor="amber" data-fx="on">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%230b0803'/%3E%3Cpath d='M3 11V5l2.5 3L8 5v6M10 5h3M10 8h3M10 11h3' stroke='%23ffb641' stroke-width='1.6' fill='none'/%3E%3C/svg%3E">
+<title>{% block title %}makenomistakes{% endblock %}</title>
+<script>/* the saved phosphor and effects, before the first paint; `js`: in-page tabs are coming (shown whole after 4 s if mnm.js never runs) */(function(r){r.classList.add("js");setTimeout(function(){r.classList.add("tabs-ready");},4000);try{var p=JSON.parse(localStorage.getItem("mnm.prefs")||"{}");if(p.phosphor)r.dataset.phosphor=p.phosphor;if(p.fx)r.dataset.fx=p.fx;}catch(e){}})(document.documentElement);</script>
+<link rel="stylesheet" href="/static/mnm.css?v={{ static_v }}">
+<link rel="preload" href="/static/fonts/vt323-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/static/fonts/ibm-plex-mono-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+<script src="{{ htmx_src }}" integrity="{{ htmx_sri }}" defer></script>
+<script src="/static/mnm.js?v={{ static_v }}" defer></script>
+</head>
+{%- set active = tab | default('') %}
+<body>
+<a class="skip-link" href="#main">Skip to the page</a>
+<div class="screen"><div class="wrap">
+<header class="term-head">
+  <a class="brand" href="/" title="Instances"><span class="name glow">makenomistakes</span><span class="sub">unified model terminal · v{{ version }}</span></a>
+  <div class="toggles" role="group" aria-label="Display">
+    <button type="button" class="toggle" data-pref="phosphor" data-on="green" data-off="amber" aria-pressed="false" title="Green phosphor instead of amber">Green</button>
+    <button type="button" class="toggle" data-pref="fx" data-on="on" data-off="off" aria-pressed="true" title="Scanlines, glow, the boot text and typed lines">FX</button>
+    <button type="button" class="toggle" data-pref="sound" data-on="on" data-off="off" aria-pressed="false" title="Key clicks (off until you turn them on)">Sound</button>
+    <button type="button" class="toggle" data-pref="keys" data-on="on" data-off="off" aria-pressed="true" title="Single-key shortcuts: 1-6 switch tabs, / opens the command line (Ctrl+K always does)">Keys</button>
+    <span class="clock" id="clock" aria-label="Time"></span>
+  </div>
+</header>
+<nav class="tabs" aria-label="Sections">
+  <a href="/" data-key="1" {% if active == 'status' %}aria-current="page"{% endif %}><span class="key">1</span>Status</a>
+  <a href="/add" data-key="2" {% if active == 'add' %}aria-current="page"{% endif %}><span class="key">2</span>Add</a>
+  <a href="/workflows" data-key="3" {% if active == 'workflows' %}aria-current="page"{% endif %}><span class="key">3</span>Sets</a>
+  <a href="/comfy" data-key="4" {% if active == 'comfy' %}aria-current="page"{% endif %}><span class="key">4</span>Workflows</a>
+  <a href="/runs" data-key="5" {% if active == 'runs' %}aria-current="page"{% endif %}><span class="key">5</span>Runs</a>
+  <a href="/system" data-key="6" {% if active == 'system' %}aria-current="page"{% endif %}><span class="key">6</span>System</a>
+</nav>
+<nav class="subtabs" aria-label="Pages">{% block subtabs %}{% endblock %}</nav>
+<main id="main" tabindex="-1">{% block body %}{% endblock %}</main>
+</div></div>
+<footer class="dock"><div class="wrap">
+  <form id="cmd-form" class="cmd" autocomplete="off" role="search">
+    <label for="cmd">mnm&gt;</label>
+    <input id="cmd" name="cmd" type="text" spellcheck="false" placeholder="start qwen3-8b · stop --all · try zimage · help" aria-describedby="cmd-out">
+    <span id="cmd-out" class="out">type help · <kbd>/</kbd> or <kbd>Ctrl</kbd>+<kbd>K</kbd></span>
+  </form>
+  <div id="bar" class="statusbar" hx-get="/bar" hx-trigger="load, every 10s" hx-swap="outerHTML"><span class="cell">reading the card…</span></div>
+</div></footer>
+<div id="boot" class="boot" hidden data-lines='{{ ["MAKENOMISTAKES UNIFIED MODEL TERMINAL  V" ~ version, "ONE ROUTER FOR EVERY MODEL ON THIS MACHINE", "", "> OPENING THE STATUS BAR", "> READY"] | tojson }}'>
+  <div class="lines" aria-live="off"></div>
+  <span class="skip">press any key</span>
+</div>
+</body>
+</html>

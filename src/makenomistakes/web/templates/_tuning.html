@@ -1,0 +1,27 @@
+{# The Tuning tab (`mnm tune`, `mnm tune --quality`): the tunes' results, trials, Optimise for speed or quality, Cancel. #}
+{% set t = tuning_for(recipe) %}
+<section class="tabpanel panel" id="tuning" data-tabpanel aria-labelledby="tune-title">
+  <h2 class="panel-title" id="tune-title">Tuning <span class="hint">mnm tune</span></h2>
+  <p class="hint">After <code>mnm add</code> the tuner measures real starts of a copy of this instance on fresh prompts, setting by setting from mnm's plan, once the card has been idle a minute; the first request for any model takes the card back and the tune resumes later. A setting you change yourself drops the tune. Optimise for quality scores this model's quants against its most faithful one and keeps the most faithful that still decodes at the speed floor.</p>
+  {% if t.problem %}<p class="error" role="alert">{{ t.problem }}</p>{% endif %}
+  {% if t.why_not %}<p>{{ t.why_not }}.</p>{% else %}
+  <dl class="kv">
+    <dt>Result</dt><dd>{% if t.tuned %}<b class="hi">{{ t.word }}</b>: {{ t.tuned.summary }} <span class="hint">score {{ "%.1f" | format(t.tuned.score.value) }} ({{ t.tuned.score.mode }}) against mnm's plan's {{ "%.1f" | format(t.tuned.seed.value) }}; decode {{ "%.1f" | format(t.tuned.score.decode) }} tok/s (the plan {{ "%.1f" | format(t.tuned.seed.decode) }}); {{ t.tuned.trials }} trials, {{ ago(t.tuned.at) }}</span>{% elif t.gave_up %}<span class="alert">gave up: {{ t.gave_up.why }}</span> <span class="hint">{{ ago(t.gave_up.at) }}, after {{ t.gave_up.trials }} trial{{ "" if t.gave_up.trials == 1 else "s" }}; Optimise for speed tries again</span>{% else %}<span class="dim">not tuned yet</span>{% endif %}</dd>
+    <dt>Quality</dt><dd>{% if recipe.quality %}<b class="hi">quality-tuned</b>: {{ recipe.quality.summary }} <span class="hint">{% if recipe.quality.was != recipe.quality.quant %}from {{ recipe.quality.was }}; {% endif %}{{ recipe.quality.measured }} quants measured on {{ recipe.quality.figures.text }}, {{ ago(recipe.quality.at) }}</span>{% else %}<span class="dim">not measured</span>{% endif %}</dd>
+    <dt>Queue</dt><dd>{% if t.closing %}{{ t.closing }}{% elif t.state and t.state.running_pid %}{{ t.state.line }}{% elif t.queued %}queued{% if t.queued.kind == "quality" %} for quality ({{ t.queued.quality.measured | length }} quants against {{ t.queued.quality.reference.quant }}){% else %} ({{ t.queued.reason }}){% endif %}{% if t.queued.now %}, to run now{% else %}, runs when the card is idle{% endif %}{% else %}<span class="dim">not queued</span>{% endif %}{% if t.state and t.state.cuts %} <span class="hint">paused {{ t.state.cuts }}× by a request</span>{% endif %}</dd>
+  </dl>
+  <div class="actions">
+    <form class="inline" method="post" action="/instances/{{ recipe.name }}/tune"><button class="btn primary" title="mnm tune {{ recipe.name }} --now">Optimise for speed</button></form>
+    <a class="btn" href="/instances/{{ recipe.name }}/quality" title="mnm tune {{ recipe.name }} --quality">Optimise for quality</a>
+    <form class="inline" method="post" action="/instances/{{ recipe.name }}/tune/cancel"><button class="btn" title="mnm tune {{ recipe.name }} --cancel">Cancel</button></form>
+  </div>
+  {% if t.job %}{% with job = t.job %}{% include "_job.html" %}{% endwith %}{% endif %}
+  {% if t.trials %}
+  <h3 class="sub-head">Trials <span class="hint">newest first</span></h3>
+  <div class="table-scroll"><table>
+    <thead><tr><th>#</th><th>Settings</th><th>Outcome</th><th>Decode tok/s</th><th>Prompt tok/s</th><th>Score</th><th>RAM</th><th>Seconds</th></tr></thead>
+    <tbody>{% for r in t.trials %}<tr><td>{{ r.number }}</td><td>{{ r.candidate.label }}</td><td>{{ r.outcome.value }}{% if r.quality %} <span class="hint">{{ r.quality.words }}</span>{% endif %}{% if r.why %} <span class="hint">{{ r.why }}</span>{% endif %}</td><td>{{ r.decode | join(", ") if r.decode else "-" }}</td><td>{{ "%.0f" | format(r.prompt_2k) if r.prompt_2k else "-" }}{% if r.prompt_16k %} / {{ "%.0f" | format(r.prompt_16k) }} long{% endif %}</td><td>{{ "%.1f" | format(r.score.value) if r.score else "-" }}</td><td>{{ gib(r.ram_rss_bytes) if r.ram_rss_bytes else "-" }}</td><td>{{ "%.0f" | format(r.seconds) }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+  {% endif %}
+</section>

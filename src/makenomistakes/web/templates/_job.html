@@ -1,0 +1,13 @@
+{% if job %}
+<div class="job" hx-get="/jobs/{{ job.id }}" hx-trigger="{% if job.state == JobState.RUNNING %}every 2s{% else %}none{% endif %}" hx-swap="outerHTML">
+  <strong class="hi">{{ job.title }}</strong>:
+  {% if job.state == JobState.RUNNING %}<span class="st st-busy st-warn"><span class="g" aria-hidden="true">◔</span>running</span> <span>{{ job.message or "working…" }}</span>
+  {% elif job.state == JobState.DONE %}<span class="st st-ok"><span class="g" aria-hidden="true">✓</span>done</span>
+  {% else %}<span class="st st-bad"><span class="g" aria-hidden="true">✖</span>failed</span> <span data-type>{{ job.error | ticks }}</span>
+    {% for d in job.diagnoses %}<div class="error"><strong>Likely cause:</strong> {{ d.cause | ticks }}<br><strong>What to do:</strong> {{ d.remedy | ticks }}</div>{% endfor %}
+  {% endif %}
+  <span class="when">· {{ job.ago() }}</span>
+  {% if job.lines %}<pre class="joblog">{{ job.lines | join("\n") }}</pre>{% endif %}
+  {% for note in job.notes %}<div class="warnline">{{ note | ticks }}</div>{% endfor %}
+</div>
+{% else %}<div class="dim">job not found</div>{% endif %}

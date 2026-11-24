@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% set tab = "status" %}
+{% block title %}Optimise {{ instance }} for quality · makenomistakes{% endblock %}
+{% block subtabs %}<a href="/">← Instances</a><a href="/instances/{{ instance }}#tuning">{{ instance }}</a><a href="#" aria-current="page">Optimise for quality</a>{% endblock %}
+{% block body %}
+<section class="panel double" aria-labelledby="q-title">
+  <h1 class="panel-title" id="q-title">Optimise {{ instance }} for quality <span class="hint">mnm tune {{ instance }} --quality</span></h1>
+  <p class="hint">Each quant of this model is scored against the most faithful one on a text it never trained on, and its decode measured at the plan that serves it; the most faithful quant at or over the speed floor is kept. Quality over speed, never automatic: nothing is downloaded until you approve.</p>
+  <form method="get" action="/instances/{{ instance }}/quality" class="row mt">
+    <label>Speed floor <input type="number" name="floor" min="{{ floor_min }}" max="{{ floor_max }}" step="0.5" value="{{ asked.floor if asked.floor else '' }}" placeholder="{{ offered.plan.floor if offered else 'tok/s' }}" inputmode="decimal"> tok/s</label>
+    <label>Quants <input type="text" name="quants" value="{{ asked.quants }}" size="22" placeholder="(mnm's choice) Q6_K,Q5_K_M"></label>
+    <label><input type="checkbox" name="keep"{% if asked.keep %} checked{% endif %}> keep the quants not chosen</label>
+    <button class="btn">Plan again</button>
+  </form>
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  {% if offered %}
+  <div class="table-scroll"><table>
+    <caption class="sr-only">The quants this tune measures</caption>
+    <thead><tr><th>Quant</th><th>Role</th><th>Size</th><th>On disk</th><th>Planned decode</th></tr></thead>
+    <tbody>{% for r in rows %}<tr><td>{{ r.quant }}</td><td>{{ r.role }}</td><td>{{ r.size }}</td><td>{{ "yes" if r.here else "downloads" }}</td><td>{{ r.decode }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% for line in words %}<p>{{ line }}</p>{% endfor %}
+  {% if short %}<div class="warnline">{{ short }}</div>{% else %}
+  <div class="actions">
+    <form class="inline" method="post" action="/instances/{{ instance }}/quality">
+      <input type="hidden" name="shown" value="{{ offered.plan.fingerprint }}">
+      {% if asked.floor %}<input type="hidden" name="floor" value="{{ asked.floor }}">{% endif %}
+      {% if asked.quants %}<input type="hidden" name="quants" value="{{ asked.quants }}">{% endif %}
+      {% if asked.keep %}<input type="hidden" name="keep" value="on">{% endif %}
+      <button class="btn primary" title="mnm tune {{ instance }} --quality --yes --now">Download and measure</button>
+    </form>
+    <a class="btn quiet" href="/instances/{{ instance }}#tuning">Back</a>
+  </div>
+  {% endif %}
+  {% endif %}
+</section>
+{% endblock %}

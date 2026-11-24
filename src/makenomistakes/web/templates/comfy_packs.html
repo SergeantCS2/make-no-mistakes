@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% set tab = "comfy" %}
+{% block title %}Node packs · makenomistakes{% endblock %}
+{% block subtabs %}<a href="/comfy">All workflows</a><a href="/comfy/packs" aria-current="page">Node packs</a><a href="/system/comfyui">ComfyUI</a>{% endblock %}
+{% block body %}
+<section class="panel double" aria-labelledby="np-title">
+  <h1 class="panel-title" id="np-title">Node packs <span class="hint">mnm comfyui packs</span></h1>
+  <p class="hint">Workflows from other people use custom nodes: Python code from a pack. mnm installs a pack only once you add it, at one version checked by its hash, built into ComfyUI's image. ComfyUI then runs with no internet, no secrets and the models read-only.</p>
+  {% if job and (job.running or job.error) %}{% include "_job.html" %}{% endif %}
+  {% if not ledger %}<div class="warnline">ComfyUI is not installed yet: <a href="/system/comfyui">System → ComfyUI</a> builds it; packs are added on top.</div>{% endif %}
+  <h2 class="sub-head">Vetted by mnm</h2>
+  <div class="table-scroll"><table>
+    <thead><tr><th>Pack</th><th>Version</th><th>Licence</th><th>What</th><th>State</th><th>Action</th></tr></thead>
+    <tbody>{% for row, state in rows %}<tr>
+      <td><a href="{{ row.repository }}" rel="noopener noreferrer">{{ row.pack }}</a></td>
+      <td>{{ row.version }}</td><td>{{ row.licence }}</td>
+      <td>{{ row.what }}{% if row.note %} <span class="hint">· {{ row.note }}</span>{% endif %}</td>
+      <td>{% if state == "installed" %}<span class="st st-ok">installed</span>{% elif state.startswith("approved") %}<span class="st st-warn">added</span>{% else %}<span class="hint">not added</span>{% endif %}</td>
+      <td>{% if state.startswith("vetted") %}<form class="inline" method="post" action="/comfy/packs/{{ row.pack }}/approve"><button class="btn quiet">Add</button></form>
+        {% else %}<form class="inline" method="post" action="/comfy/packs/{{ row.pack }}/remove"><button class="btn quiet">Remove</button></form>{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% if others %}<h2 class="sub-head">Approved by you</h2>
+  <ul>{% for a in others %}<li>{{ a.pack }} {{ a.version }} <span class="hint">{{ a.licence }} · {{ a.repository }}</span> <form class="inline" method="post" action="/comfy/packs/{{ a.pack }}/remove"><button class="btn quiet">Remove</button></form></li>{% endfor %}</ul>{% endif %}
+  <form class="row" method="get" action="/comfy/packs">
+    <label for="pack">Another pack <span class="hint">its Registry id, or <code>github:owner/repo@&lt;tag or commit&gt;</code> for one off the Registry</span></label> <input type="text" id="pack" name="pack" maxlength="300" required> <button class="btn">Look it up</button>
+  </form>
+  <div class="actions">
+    {% if ledger %}<form class="inline" method="post" action="/comfy/packs/install"{% if weights %} onsubmit='return confirm({{ ("The packs read " ~ (weights | map(attribute="link") | join(", ")) ~ ", which mnm downloads first. Go on?") | tojson }})'{% endif %}><button class="btn primary">Install the added packs</button></form>{% endif %}
+    {% if ledger and ledger.packs_previous %}<form class="inline" method="post" action="/comfy/packs/rollback"><button class="btn">Back to the layer before</button></form>{% endif %}
+    <span class="hint">{% if installed %}In ComfyUI now: {{ installed | join(", ") }}.{% else %}No packs in ComfyUI yet.{% endif %} A build takes minutes; ComfyUI starts once to check every pack loads.</span>
+  </div>
+</section>
+{% endblock %}

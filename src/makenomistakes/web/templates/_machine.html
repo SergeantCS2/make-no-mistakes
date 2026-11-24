@@ -1,0 +1,30 @@
+{% set gpu = snapshot.gpu %}{% set pf = platform() %}
+<section id="machine" class="panel"{% if oob is defined and oob %} hx-swap-oob="true"{% endif %} aria-labelledby="machine-title">
+  <h2 class="panel-title" id="machine-title">This machine <span class="hint">live, every 10 s</span></h2>
+  {% if gpu %}
+  {% set pct = percent(gpu.vram_used_bytes, gpu.vram_total_bytes) %}
+  <div class="machine-row">
+    <div><div class="hint">{{ gpu.name }}{% if gpu.gfx_target %} · {{ gpu.gfx_target }}{% endif %}</div><div class="big-num glow">{{ pct }}<span class="unit">%</span></div></div>
+    <div class="machine-meter">
+      <p>{{ "GTT" if gpu.carve_out else "Unified memory" if gpu.unified else "VRAM" }} {{ gib(gpu.vram_used_bytes) }} of {{ gib(gpu.vram_total_bytes) }} in use ({{ pct }}%), <b class="hi">{{ gib(gpu.vram_free_bytes) }} free</b></p>
+      <div class="meter big {{ meter_tone(pct) }}" role="img" aria-label="VRAM {{ pct }}% in use"><span class="fill" style="width:{{ pct }}%"></span></div>
+    </div>
+    <div class="machine-spark"><div class="hint">{{ "Pool" if gpu.unified or gpu.carve_out else "VRAM" }}, last 10 min</div><div class="spark" data-spark role="img" aria-label="{{ "Pool" if gpu.unified or gpu.carve_out else "VRAM" }} history"></div></div>
+  </div>
+  {% if snapshot.cards | length > 1 %}{# every chosen card, its own meter #}
+  <ul class="card-meters">{% for card in snapshot.cards %}{% set cpct = percent(card.vram_used_bytes, card.vram_total_bytes) %}
+    <li><span class="hint">GPU{{ card.index }} {{ card.name }}</span> {{ gib(card.vram_used_bytes) }} of {{ gib(card.vram_total_bytes) }} ({{ cpct }}%) <span class="meter {{ meter_tone(cpct) }}" role="img" aria-label="GPU{{ card.index }} VRAM {{ cpct }}% in use"><span class="fill" style="width:{{ cpct }}%"></span></span></li>
+  {% endfor %}</ul>
+  {% endif %}
+  {% if (gpu.unified or gpu.carve_out) and snapshot.memory and snapshot.memory.available_bytes is not none %}{# one pool #}
+  <p class="hint" id="pool-line">One pool: {{ "%.0f" | format(snapshot.memory.total_bytes / 1000000000) }} GB {{ "unified" if gpu.unified else "shared with the APU" }}, {{ "%.0f" | format(snapshot.memory.available_bytes / 1000000000) }} GB available: models are planned against it whole, {{ "8" if gpu.unified else "4" }} GiB kept for the system (the meter above is the part mnm plans in). <em>Fits now</em> below is each instance's estimate against the free part.</p>
+  {% else %}
+  <p class="hint">{{ pf.others | capitalize }} hold some VRAM too (often 1 to 2 GiB). <em>Fits now</em> below is each instance's estimate against the free part.</p>
+  {% endif %}
+  {% elif no_card() %}
+  <p>No card: the CPU backend runs every model in RAM (<a href="/system/engines">its images</a>).</p>
+  {% else %}
+  <p><span class="st st-bad"><span class="g">?</span>GPU not readable</span> {{ snapshot.gpu_error }}. <a href="/doctor">Run the doctor.</a></p>
+  {% endif %}
+  {% if snapshot.memory and snapshot.memory.available_bytes is not none %}<p class="hint">RAM {{ gib(snapshot.memory.total_bytes - snapshot.memory.available_bytes) }} of {{ gib(snapshot.memory.total_bytes) }} in use{% if pf.is_wsl %} (WSL VM){% endif %}.</p>{% endif %}
+</section>

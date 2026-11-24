@@ -1,0 +1,20 @@
+{% set gpu = snapshot.gpu %}{% set pct = percent(gpu.vram_used_bytes, gpu.vram_total_bytes) if gpu else 0 %}
+<div id="bar" class="statusbar{% if snapshot.cards | length > 2 %} many-cards{% endif %}" hx-get="/bar" hx-trigger="every 10s" hx-swap="outerHTML" aria-live="off" aria-label="Machine and router"{% if gpu %} data-used="{{ gpu.vram_used_bytes }}" data-total="{{ gpu.vram_total_bytes }}"{% endif %}>
+  {% if gpu and snapshot.cards | length > 1 %}{# one segment per chosen card #}
+  {% set used = snapshot.cards | sum(attribute="vram_used_bytes") %}{% set total = snapshot.cards | sum(attribute="vram_total_bytes") %}
+  <span class="cell cards-sum" title="{{ snapshot.cards | length }} cards: {{ gib(used) }} of {{ gib(total) }} in use">GPUs <b>{{ "%.1f" | format(used / 1073741824) }}/{{ "%.1f" | format(total / 1073741824) }}</b> GiB</span>{# at phone width, in place of a cell per card #}
+  {% for card in snapshot.cards %}{% set cpct = percent(card.vram_used_bytes, card.vram_total_bytes) %}
+  <span class="cell per-card" title="{{ card.name }}: {{ gib(card.vram_used_bytes) }} of {{ gib(card.vram_total_bytes) }} in use, {{ gib(card.vram_free_bytes) }} free">GPU{{ card.index }} <span class="meter {{ meter_tone(cpct) }}"><span class="fill" style="width:{{ cpct }}%"></span></span><b>{{ "%.1f" | format(card.vram_used_bytes / 1073741824) }}/{{ "%.1f" | format(card.vram_total_bytes / 1073741824) }}</b> GiB</span>
+  {% endfor %}
+  {% elif gpu %}
+  <span class="cell" title="{{ gpu.name }}: {{ gib(gpu.vram_used_bytes) }} of {{ gib(gpu.vram_total_bytes) }} in use, {{ gib(gpu.vram_free_bytes) }} free">{{ "Pool" if gpu.unified or gpu.carve_out else "VRAM" }} <span class="meter {{ meter_tone(pct) }}"><span class="fill" style="width:{{ pct }}%"></span></span><b>{{ "%.1f" | format(gpu.vram_used_bytes / 1073741824) }}/{{ "%.1f" | format(gpu.vram_total_bytes / 1073741824) }}</b> GiB {{ pct }}%</span>
+  {% elif no_card() %}<span class="cell" title="No card: every model runs in RAM">No card <b>CPU</b></span>
+  {% else %}<span class="cell"><span class="st st-bad"><span class="g">?</span>GPU not readable</span> <a href="/doctor">doctor</a></span>{% endif %}
+  {% if comfy_held is not none %}<span class="cell"><a href="/#comfyui" title="ComfyUI holds this much of the card">ComfyUI</a> <b>{{ "%.1f" | format(comfy_held / 1073741824) }}</b> GiB</span>{% endif %}
+  {% if snapshot.memory and snapshot.memory.available_bytes is not none %}<span class="cell">RAM <b>{{ "%.1f" | format((snapshot.memory.total_bytes - snapshot.memory.available_bytes) / 1073741824) }}/{{ "%.1f" | format(snapshot.memory.total_bytes / 1073741824) }}</b> GiB</span>{% endif %}
+  <span class="cell"><a href="/system" title="The router: one URL for every model">Router</a>
+    {% if router.up %}<b>:{{ router.port }} up</b>{% if router.in_flight %} · {{ router.in_flight }} busy{% endif %}{% if router.waiting %} · <a href="/#router-title">{{ router.waiting }} waiting</a>{% endif %}{% if router.key_required %} · key{% endif %}
+    {% else %}<span class="st st-bad"><span class="g">✕</span>:{{ router.port }} down</span>{% endif %}</span>
+  {% if busy_jobs %}<span class="cell"><a href="/#activity">{{ busy_jobs }} job{{ "" if busy_jobs == 1 else "s" }} running</a></span>{% endif %}
+</div>
+{% if with_machine %}{% with oob = true %}{% include "_machine.html" %}{% endwith %}{% endif %}

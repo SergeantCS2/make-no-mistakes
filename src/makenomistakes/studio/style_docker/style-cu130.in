@@ -1,0 +1,7 @@
+-r style.in
+torch==2.10.0+cu130
+torchaudio==2.10.0+cu130
+torchvision==0.25.0+cu130
+# adamw8bit, the tight profile's optimizer: missing from ACE-Step's uv.lock, so its
+# trainer quietly falls back to plain AdamW without it
+bitsandbytes==0.50.2

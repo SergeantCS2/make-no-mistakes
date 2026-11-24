@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% from "_macros.html" import instance_actions %}
+{% set tab = "status" %}
+{% block title %}Instances · makenomistakes{% endblock %}
+{% block subtabs %}<a href="/" aria-current="page">Instances</a><a href="/#machine">Machine</a><a href="/#activity">Activity</a>{% endblock %}
+{% block body %}
+<h1 class="sr-only">Status</h1>
+{% set pf = platform() %}
+<div class="split">
+  {% include "_machine.html" %}
+  <section class="panel" aria-labelledby="router-title">
+    <h2 class="panel-title" id="router-title">Router</h2>
+    {% if router.up %}
+    <p><span class="st st-ok"><span class="g" aria-hidden="true">●</span>up</span> on port <b class="hi">{{ router.port }}</b>: one URL for every model below.</p>
+    <dl class="kv">
+      <dt>Busy</dt><dd>{% if router.busy %}{% for n, c in router.busy.items() %}{{ n }}: {{ c }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}nothing in flight{% endif %}</dd>
+      {% if router.waiting_lines %}<dt>Waiting</dt><dd>{% for line in router.waiting_lines %}<b class="hi">{{ line }}</b>{% if not loop.last %}; {% endif %}{% endfor %}</dd>{% endif %}
+      <dt>Key</dt><dd>{{ "required (MNM_API_KEY is set)" if router.key_required else "none" }}</dd>
+      <dt>Listens</dt><dd>{{ router.host }}</dd>
+    </dl>
+    {% else %}
+    <p><span class="st st-bad"><span class="g" aria-hidden="true">✕</span>down</span> Nothing answers on port {{ router.port }}, so no client reaches a model. <code>mnm service install</code> runs it as a service.</p>
+    {% endif %}
+    <p class="hint"><a href="/system">System</a> has the services, engines and settings.</p>
+  </section>
+</div>
+<section class="panel double" id="portal" aria-labelledby="portal-title" hx-get="/portal" hx-trigger="load" hx-swap="innerHTML">
+  <h2 class="panel-title" id="portal-title">Use it</h2>
+  <p class="hint">Reading the desk and the apps…</p>
+</section>
+{% if comfy.installed %}{% include "_comfy_status.html" %}{% endif %}
+{% set tuning_now = tuning_line() %}{% if tuning_now %}<p class="okline home-alert" role="status">Tuner: {{ tuning_now }} <span class="hint">the first request takes the card back</span></p>{% endif %}
+{% set machine_said = machine.headline() if machine else none %}{% if machine_said %}<p class="warnline home-alert" role="status">{{ machine_said }}. <code>mnm machine adopt</code> re-fits them; <a href="/system/machine">System → Machine</a> shows which and adopts this box.</p>{% endif %}
+{% if removed %}<div class="okline home-alert" role="status">Removed {{ removed }}.{% if freed is not none %} Freed {{ gib(freed) }}{% if kept %}; {{ kept }} file{{ "" if kept == 1 else "s" }} another instance uses stayed{% endif %}.{% else %} Its downloads stayed.{% endif %}</div>{% endif %}
+{% if docker_error %}<div class="error home-alert" role="alert"><strong>Docker could not be asked:</strong> {{ docker_error }}<br><span class="hint">States and fit verdicts are unknown until it answers. Right after <code>mnm setup</code> installed Docker, {{ pf.relogin }}.</span></div>{% endif %}
+<section class="panel double home-first" aria-labelledby="inst-title">
+  <h2 class="panel-title" id="inst-title">Instances {% if statuses %}<span class="hint">{{ statuses | length }}</span>{% endif %}</h2>
+  {% if not statuses %}
+  <div class="empty">
+    <h2 class="glow">No instances yet</h2>
+    <p>Nothing is planned on this machine. Pick a model that fits this card, or paste a link.</p>
+    <p class="row center"><a class="btn primary" href="/starter">Get started</a> <a class="btn" href="/add">Add a model</a></p>
+    <p class="hint">A Hugging Face, Civitai (or Civitai Archive) or LM Studio link works.</p>
+  </div>
+  {% else %}
+  <div class="row spread">
+    <p class="hint">Copy URL gives the address clients paste (through the router). A row's name opens its page: cards, settings, Test it, the log.</p>
+    <span class="actions"><a class="btn" href="/add">Add a model</a><a class="btn quiet" href="/starter">Get started</a>
+    {% if statuses | selectattr("state", "ne", ContainerState.ABSENT) | list %}
+    <form class="inline" method="post" action="/instances/stop-all" onsubmit='return confirm({{ "Stop every running instance? They stay stopped until started (mnm stop --all)." | tojson }})'><input type="hidden" name="next" value="/"><button class="btn danger">Stop all</button></form>
+    {% endif %}</span>
+  </div>
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>Instance</th><th>Quant</th><th>Settings</th><th>State</th><th>Fits now</th><th>URL</th><th><span class="sr-only">Actions</span></th></tr></thead>
+    <tbody>
+    {% for group in groups %}
+    <tr class="group"><th colspan="7">{{ group[0].recipe.modality.label }}<span class="count">{{ group | length }}</span></th></tr>
+    {% for status in group %}{% set r = status.recipe %}{% set v = verdicts[r.name] %}{% set job = running.get(r.name) %}
+    <tr>
+      <td class="name" data-label="Instance"><a class="inst" href="/instances/{{ r.name }}" title="Details, settings, URLs, Test it and the engine log">{{ r.name }}</a><a class="src" href="{{ r.source_url }}" target="_blank" rel="noopener" title="Open on {{ repo_site(r.repo_id) }}">{{ r.repo_id }}</a></td>
+      <td data-label="Quant">{{ r.quant }}</td>
+      <td data-label="Settings" class="dim">{{ r.settings_summary }}</td>
+      <td data-label="State">{% include "_state.html" %}{% if job and job.message %}<span class="note">{{ job.message }}</span>{% endif %}</td>
+      <td data-label="Fits now">{% include "_verdict.html" %}{% if v.warns or v.comfy_freed %}<span class="note">{{ v.note | ticks }}</span>{% endif %}</td>
+      <td data-label="URL"><button type="button" class="btn copy" title="Copy {{ copy_url(r) }}" data-copy="{{ copy_url(r) }}" onclick="copyText(this)">Copy URL</button></td>
+      <td class="actions">
+        <a class="btn quiet" href="/instances/{{ r.name }}">Details</a>
+        {{ instance_actions(r, status, v, "/") }}
+      </td>
+    </tr>
+    {% endfor %}
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% endif %}
+</section>
+<section class="panel" id="activity" aria-labelledby="act-title">
+  <h2 class="panel-title" id="act-title">Recent activity</h2>
+  {% if jobs %}{% for job in jobs %}{% include "_job.html" %}{% endfor %}
+  {% else %}<p class="hint">Nothing to show: downloads, starts and tests show here while they run and for a while after (a restart of the UI forgets them, a half download resumes on Start, and a removed instance's go with it).</p>{% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,81 @@
+[project]
+name = "makenomistakes"
+version = "5.0.0"
+description = "Local AI models planned for your machine and served at one OpenAI-compatible URL: paste a Hugging Face link, mnm picks the quant, context and memory split that fit, and runs it in its engine's official Docker image."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+dependencies = [
+  "httpx>=0.27",
+  "pydantic>=2.7",
+  "pydantic-settings>=2.3",
+  "typer>=0.12",
+  "rich>=13.7",
+  "huggingface_hub>=0.30",
+  "fastapi>=0.115",
+  "uvicorn>=0.30",
+  "jinja2>=3.1",
+  "python-multipart>=0.0.9",
+  "python-dotenv>=1.0",
+  "pyyaml>=6.0",
+  "websockets>=13",
+  "tqdm>=4.66",  # the plain-file downloads' bar, as huggingface_hub draws its own
+]
+
+[project.scripts]
+mnm = "makenomistakes.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/makenomistakes"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "ANN", "N", "PL"]
+ignore = ["ANN401", "PLR2004"]
+
+[tool.ruff.lint.per-file-ignores]
+# Typer commands are option lists; their parameter count is the UI, not a design smell.
+"src/makenomistakes/cli/*" = ["PLR0913", "PLR0917"]
+# The studio tools' command inside its image imports torch and friends only for the
+# command asked (`versions` imports none); mnm itself never imports it.
+"src/makenomistakes/studio/docker/*" = ["PLC0415"]
+# The trainer's driver inside its image, likewise (torch only where a stage needs it).
+"src/makenomistakes/studio/trainer_docker/*" = ["PLC0415"]
+# The style trainer's driver inside its image, likewise (ACE-Step's modules, torch).
+"src/makenomistakes/studio/style_docker/*" = ["PLC0415"]
+
+[tool.ruff.lint.pylint]
+max-args = 7
+max-positional-args = 7
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["makenomistakes"]
+mypy_path = "src"
+plugins = ["pydantic.mypy"]
+
+# The studio tools' command runs inside its image (torch, librosa, the models), never in
+# mnm's environment; its answers are typed where mnm reads them (`studio/tools_answers.py`).
+[[tool.mypy.overrides]]
+module = "makenomistakes.studio.docker.*"
+ignore_errors = true
+
+# The trainer's driver runs inside its image (Applio's scripts, torch), never in mnm's.
+[[tool.mypy.overrides]]
+module = "makenomistakes.studio.trainer_docker.*"
+ignore_errors = true
+
+# The style trainer's driver runs inside its image (ACE-Step's trainer), never in mnm's.
+[[tool.mypy.overrides]]
+module = "makenomistakes.studio.style_docker.*"
+ignore_errors = true
+

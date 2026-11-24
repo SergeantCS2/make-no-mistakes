@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% from "_macros.html" import run_media %}
+{% set tab = "comfy" %}
+{% block title %}{{ meta.name }} · makenomistakes{% endblock %}
+{% block subtabs %}<a href="/comfy">← Workflows</a><a href="/comfy/{{ meta.name }}" aria-current="page">{{ meta.name }}</a>{% endblock %}
+{% block body %}
+<section class="panel double" aria-labelledby="w-title">
+  <h1 class="panel-title" id="w-title">{{ meta.title or meta.name }} <span class="hint">{{ meta.name }}</span></h1>
+  <p class="hint">From {{ meta.source }} · imported {{ ago(meta.imported_at) }}</p>
+  {% for p in report.problems %}<div class="error">Refused: {{ p }}.</div>{% endfor %}
+  {% if job and job.running %}{% include "_job.html" %}
+  <form class="inline" method="post" action="/comfy/{{ meta.name }}/stop"><button class="btn danger">Stop the run</button></form>
+  {% elif job and job.error %}{% include "_job.html" %}{% endif %}
+  {% if fields %}
+  <form method="post" action="/comfy/{{ meta.name }}/run" enctype="multipart/form-data" class="stack tight">
+    {% for f in fields if f.shown %}{{ field(f) }}{% endfor %}
+    {% set more = fields | rejectattr("shown") | list %}
+    {% if more %}<details><summary>More settings ({{ more | length }})</summary><div class="stack tight">{% for f in more %}{{ field(f) }}{% endfor %}</div></details>{% endif %}
+    <div><button class="btn primary">Run</button> <span class="hint">{% if state.value != "running" %}ComfyUI starts first; {% endif %}mnm's models make room on the card.</span></div>
+  </form>
+  {% set extra = fields | selectattr("role.value", "equalto", "more") | list %}
+  {% if extra %}<details><summary>Choose the settings shown above</summary>
+    <form method="post" action="/comfy/{{ meta.name }}/shown" class="stack tight">
+      <fieldset><legend class="hint">Ticked settings leave More settings and stay on top for this workflow.</legend>
+      {% for f in extra %}<label class="check"><input type="checkbox" name="key" value="{{ f.key }}"{% if f.picked %} checked{% endif %}> {{ f.label }}</label>{% endfor %}</fieldset>
+      <div><button class="btn">Save</button></div>
+    </form></details>{% endif %}
+  {% elif why %}<div class="warnline">{{ why }}</div>{% endif %}
+</section>
+
+<section class="panel double" aria-labelledby="need-title">
+  <h2 class="panel-title" id="need-title">What it needs</h2>
+  <dl class="kv">
+    {% if ledger_error %}<dt>ComfyUI</dt><dd class="warnline">{{ ledger_error }}</dd>{% endif %}
+    <dt>Node packs</dt><dd>{% for p in report.packs %}<div>{{ p.pack }} {{ p.version or "" }} — {% if p.installed %}<span class="st st-ok">installed</span>{% else %}<a class="st st-warn" href="/comfy/packs/{{ p.pack | urlencode }}">{{ pack_state[p.pack] }}</a>{% endif %} <span class="hint">{{ p.nodes | join(", ") }}</span></div>{% else %}ComfyUI's own nodes only{% endfor %}
+      {% if report.packs | rejectattr("installed") | list %}<form class="inline" method="post" action="/comfy/{{ meta.name }}/packs"><button class="btn">Add its packs</button></form> <a href="/comfy/packs">Node packs</a> installs them.{% endif %}</dd>
+    {% if report.missing %}<dt>Unknown nodes</dt><dd>{{ report.missing | join(", ") }}</dd>{% endif %}
+    {% if report.risky %}<dt>May run code</dt><dd class="warnline">{{ report.risky | join(", ") }}</dd>{% endif %}
+  </dl>
+  <h3 id="models">Model files</h3>
+  {% if models %}<div class="table-scroll"><table>
+    <thead><tr><th>File</th><th>Folder</th><th>Where</th><th>From</th></tr></thead>
+    <tbody>{% for s in models %}<tr>
+      <td><code>{{ s.link }}</code>{% if s.need.pickle %} <span class="st st-warn" title="can run code when loaded">pickle</span>{% endif %}</td>
+      <td>{{ s.need.folder or "checkpoints" }}</td>
+      <td>{% if s.where.value == "in place" %}<span class="st st-ok">in place</span>{% elif s.where.value == "unknown" %}<span class="st st-warn">no link</span>{% else %}{{ s.where.value }}{% endif %}</td>
+      <td>{% if s.source %}<span class="hint">{{ s.source.label }}</span>{% elif s.target %}<span class="hint">{{ s.target }}</span>{% elif s.where.value == "unknown" %}
+        {% if s.refused %}<span class="warnline">{{ s.refused }}</span><br>{% endif %}
+        {% for offer in meta.found.get(s.need.name, []) %}<form class="inline" method="post" action="/comfy/{{ meta.name }}/models/link"><input type="hidden" name="file" value="{{ s.need.name }}"><input type="hidden" name="url" value="{{ offer.url }}"><span class="hint">same name: <a href="{{ offer.url }}" target="_blank" rel="noopener">{{ offer.label }}</a>{% if offer.size %} ({{ size_words(offer.size) }}){% endif %}</span> <button class="btn quiet" title="Only if it is the model this workflow means">Use</button></form><br>{% endfor %}
+        <form class="inline" method="post" action="/comfy/{{ meta.name }}/models/link"><input type="hidden" name="file" value="{{ s.need.name }}"><input type="url" name="url" placeholder="https://huggingface.co/…/resolve/main/…" size="34" required> <button class="btn quiet">Use</button></form>{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  <div class="actions">
+    {% if models | selectattr("where.value", "equalto", "unknown") | list %}<form class="inline" method="post" action="/comfy/{{ meta.name }}/models/find"><button class="btn">Find the files without a link</button></form>{% endif %}
+    {% set todo = models | rejectattr("where.value", "in", ["in place", "unknown"]) | list %}
+    {% if todo %}<form class="inline" method="post" action="/comfy/{{ meta.name }}/models/fetch" onsubmit='return confirm({{ ("Download and link " ~ (todo | length) ~ " files? Video models are several GB each.") | tojson }})'><button class="btn primary">Fetch {{ todo | length }} file{{ "" if todo | length == 1 else "s" }}</button></form>{% endif %}
+  </div>
+  {% else %}<p class="hint">It names no model files.</p>{% endif %}
+  <form class="inline" method="post" action="/comfy/{{ meta.name }}/remove" onsubmit='return confirm({{ ("Remove the workflow " ~ meta.name ~ "? Its runs stay in Runs.") | tojson }})'>
+    <label class="check"><input type="checkbox" name="files" value="true"> also delete the model files mnm fetched for it (kept when another workflow or an instance uses one)</label>
+    <button class="btn danger">Remove workflow</button>
+  </form>
+</section>
+
+{% if runs %}<section class="panel double" aria-labelledby="r-title">
+  <h2 class="panel-title" id="r-title">Its runs</h2>
+  <div class="run-grid">{% for run in runs %}{{ run_media(run, "/comfy/" ~ meta.name) }}{% endfor %}</div>
+</section>{% endif %}
+{% endblock %}
+
+{% macro field(f) -%}
+{% set id = "f-" ~ (f.key | replace(":", "-") | replace(".", "-")) %}
+<label for="{{ id }}">{{ f.label }}</label>
+{% if f.kind.value in ("image", "video", "audio") %}<input type="file" id="{{ id }}" name="{{ f.key }}" accept="{{ f.kind.value }}/*"> <span class="hint">now: {{ f.default }}</span>
+{% elif f.follows %}<input type="text" id="{{ id }}" name="{{ f.key }}" value="" placeholder="as the setting above ({{ f.default }} in the workflow)" class="wide">
+{% elif f.kind.value == "long_text" %}<textarea id="{{ id }}" name="{{ f.key }}" rows="4" class="wide">{{ f.default }}</textarea>
+{% elif f.kind.value == "seed" %}<input type="text" id="{{ id }}" name="{{ f.key }}" placeholder="random each run" size="22"> <span class="hint">the workflow had {{ f.default }}</span>
+{% elif f.kind.value == "choice" %}<select id="{{ id }}" name="{{ f.key }}">{% for o in f.options %}<option value="{{ o }}"{% if o == f.default %} selected{% endif %}>{{ o }}</option>{% endfor %}{% if f.default not in f.options %}<option value="{{ f.default }}" selected>{{ f.default }}</option>{% endif %}</select>
+{% elif f.kind.value == "bool" %}<select id="{{ id }}" name="{{ f.key }}"><option value="true"{% if f.default %} selected{% endif %}>yes</option><option value="false"{% if not f.default %} selected{% endif %}>no</option></select>
+{% elif f.kind.value in ("int", "float") %}<input type="number" id="{{ id }}" name="{{ f.key }}" value="{{ f.default }}"{% if f.minimum is not none %} min="{{ f.minimum }}"{% endif %}{% if f.maximum is not none and f.maximum < 1e15 %} max="{{ f.maximum }}"{% endif %} step="{{ f.step if f.step else ('1' if f.kind.value == 'int' else 'any') }}">
+{% else %}<input type="text" id="{{ id }}" name="{{ f.key }}" value="{{ f.default }}" class="wide">{% endif %}
+{%- endmacro %}

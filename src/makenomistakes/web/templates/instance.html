@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% from "_macros.html" import instance_actions, switcher, cards, figures %}
+{% from "_speed_graph.html" import speed_graph %}
+{% set tab = "status" %}
+{% block title %}{{ recipe.name }} · makenomistakes{% endblock %}
+{% block subtabs %}<a href="/">← Instances</a><a href="/instances/{{ recipe.name }}" aria-current="page">{{ recipe.name }}</a>{% endblock %}
+{% block body %}
+{% set base = "/instances/" ~ recipe.name %}
+{% set shown = try_result(recipe.name) %}
+<section class="panel double head" id="top" aria-labelledby="inst-name">
+  <h1 class="panel-title" id="inst-name">{{ recipe.name }}</h1>
+  <div class="head-grid">
+    <div class="head-info">
+      <p class="dim"><a href="{{ recipe.source_url }}" target="_blank" rel="noopener" title="Open on {{ repo_site(recipe.repo_id) }}">{{ recipe.repo_id }}</a> @ {{ recipe.revision }} · {{ recipe.modality.label }} · {{ recipe.quant }} · {{ recipe.profile.value }} profile</p>
+      {% if status.error %}<div class="error" role="alert"><strong>Docker could not be asked:</strong> {{ status.error }}</div>{% endif %}
+      <dl class="kv">
+        <dt>State</dt><dd>{% include "_state.html" %}{% if not recipe.downloaded and not (job and job.running) %} <span class="dim">· Start downloads the files first</span>{% endif %}</dd>
+        {% with v = verdict %}<dt>Fits now</dt><dd>{% include "_verdict.html" %} <span class="hint">{{ verdict.note | ticks }}</span></dd>{% endwith %}
+        <dt>Paste</dt><dd><code>{{ copy_url(recipe) }}</code> <button type="button" class="btn copy" data-copy="{{ copy_url(recipe) }}" onclick="copyText(this)">Copy URL</button></dd>
+        <dt>Settings</dt><dd class="dim">{{ recipe.settings_summary }}</dd>
+        {% if recipe.modality.value in ("chat", "coding", "vision_chat") %}<dt>Tools</dt><dd>{% if tools %}{% set b = tools_badge(tools.verdict) %}<span class="{{ b.css }}" title="{{ b.title }}"><span class="g" aria-hidden="true">{{ b.glyph }}</span>{{ b.word }}</span> <span class="hint">{{ tools.detail }}, {{ tools.when(recipe) }} · <a href="#test" data-tab-link="test">test again</a></span>{% else %}<span class="dim">not tested</span> <span class="hint"><code>mnm try {{ recipe.name }} --tools</code>, or Test it with Tools</span>{% endif %}</dd>{% endif %}
+      </dl>
+    </div>
+    <div class="head-actions actions">
+      {% with r = recipe, v = verdict %}{{ instance_actions(r, status, v, "", wide=true) }}{% endwith %}
+    </div>
+    {% if job %}<div class="head-job">{% include "_job.html" %}</div>{% endif %}
+  </div>
+</section>
+
+<nav class="ptabs" aria-label="{{ recipe.name }}" data-tablist>
+  <a href="#overview" data-tab="overview">Overview</a>
+  <a href="#cards" data-tab="cards">Connect</a>
+  {% if recipe.modality.value in runnable %}<a href="#run" data-tab="run">Run</a>{% endif %}
+  <a href="#test" data-tab="test">Test it</a>
+  {% if recipe.engine.value == 'llamacpp' and recipe.modality.value in ("chat", "coding", "vision_chat") %}<a href="#tuning" data-tab="tuning">Tuning</a>{% endif %}
+  <a href="#settings" data-tab="settings">Settings <span class="count">{{ controls | length }}</span></a>
+  {% if recipe.engine.value == 'sdcpp' %}<a href="#loras" data-tab="loras">LoRAs <span class="count">{{ recipe.loras | length }}</span></a>{% endif %}
+  <a href="#log" data-tab="log">Log{% if review.errors or review.diagnoses %} <span class="count bad">{{ (review.errors | length) + (review.diagnoses | length) }}</span>{% endif %}</a>
+</nav>
+
+<section class="tabpanel" id="overview" data-tabpanel aria-label="Overview">
+  <div class="dash">
+    <div class="dash-main">
+      <section class="panel" id="parts" aria-labelledby="parts-title">
+        <h2 class="panel-title" id="parts-title">Parts <span class="hint">what the next start loads, and where</span></h2>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Part</th><th>File</th><th>Size</th><th>Where</th></tr></thead>
+          <tbody>{% for p in parts %}<tr><td>{{ p.role }}</td><td><a href="{{ repo_page(p.repo_id, recipe.revision if p.repo_id == recipe.repo_id else none) }}" target="_blank" rel="noopener" title="{{ p.repo_id }} on {{ repo_site(p.repo_id) }}">{{ p.file }}</a></td><td class="nowrap">{% if p.size_bytes %}{{ "%.2f" | format(p.size_bytes / 1073741824) }} GiB{% else %}<span class="dim">?</span>{% endif %}</td><td>{{ p.place }}</td></tr>{% endfor %}</tbody>
+        </table></div>
+        {% if voices %}<p><span class="hint">Voices a request may name:</span> {{ voices | join(", ") }}</p>{% endif %}
+        {% if command %}<details><summary>The command the next start runs, from the saved settings (<code>mnm show</code>)</summary><pre>{{ command }}</pre><button type="button" class="btn copy" data-copy="{{ command }}" onclick="copyText(this)">Copy block</button></details>{% endif %}
+      </section>
+      {% set graph = speed_graph_for(recipe.name) if recipe.modality.value in ("chat", "coding", "vision_chat") else none %}
+      {% if readings or graph or elsewhere %}
+      <section class="panel" aria-labelledby="read-title">
+        <h2 class="panel-title" id="read-title">Readings <span class="hint">what the card really held; the planner learns from them</span></h2>
+        {% if graph %}{{ speed_graph(graph) }}{% endif %}
+        {% if readings %}<div class="table-scroll"><table>
+          <thead><tr><th>When</th><th>Kind</th><th>VRAM</th><th>Estimate</th><th>Load</th><th>Speed</th></tr></thead>
+          <tbody>{% for r in readings | reverse %}<tr><td class="nowrap">{{ r.at.astimezone().strftime("%m-%d %H:%M") }}</td><td>{{ r.kind.value }}</td><td>{{ gib(r.vram_bytes) if r.vram_bytes else "-" }}</td><td>{{ gib(r.estimate_bytes) if r.estimate_bytes else "-" }}</td><td>{{ "%g s" | format(r.load_seconds) if r.load_seconds is not none else "-" }}</td><td>{{ ("%g " | format(r.speed)) ~ r.speed_unit.value if r.speed and r.speed_unit else "-" }}{% if beside(r) %}; {{ beside(r) }}{% endif %}</td></tr>{% endfor %}</tbody>
+        </table></div>{% endif %}
+        {% if elsewhere %}<p class="hint">{{ elsewhere }}: each box plans from its own.</p>{% endif %}
+      </section>
+      {% endif %}
+      <section class="panel" id="why" aria-labelledby="why-title">
+        <h2 class="panel-title" id="why-title">Why this plan <span class="hint">the planner's reasons, planned again for this box; nothing is saved</span></h2>
+        <div id="why-body">
+          <p class="hint">Plans {{ recipe.name }} again for this box, reading its model on {{ repo_site(recipe.repo_id) }} (a few seconds): why this quant, context and place, what a plan for the box now would change, and what more room would change. <code>mnm why {{ recipe.name }}</code> says the same.</p>
+          <p><button type="button" class="btn" hx-get="{{ base }}/why" hx-target="#why-body" hx-swap="innerHTML" hx-indicator="#why-wait" hx-disabled-elt="this">Explain this plan</button> <span id="why-wait" class="htmx-indicator hint" role="status">Planning: reading the model on {{ repo_site(recipe.repo_id) }}…</span></p>
+        </div>
+      </section>
+    </div>
+    <aside class="dash-side">
+      <section class="panel" aria-labelledby="glance-test">
+        <h2 class="panel-title" id="glance-test">Last test</h2>
+        {% if shown %}
+        {{ figures(shown) }}
+        <p class="hi clamp">{{ shown.answer }}</p>
+        {% else %}<p class="hint">Not tested since this web UI started.</p>{% endif %}
+        <p><a class="btn" href="#test" data-tab-link="test">Test it</a></p>
+      </section>
+      <section class="panel" aria-labelledby="glance-log">
+        <h2 class="panel-title" id="glance-log">Log review</h2>
+        {% if logs %}
+        <dl class="kv">
+          <dt>Diagnoses</dt><dd>{{ review.diagnoses | length }}</dd>
+          <dt>Errors</dt><dd>{{ review.errors | length }}</dd>
+          <dt>Warnings</dt><dd>{{ review.notable_warnings | length }} <span class="hint">+ {{ review.harmless_warnings | length }} known harmless</span></dd>
+        </dl>
+        {% for d in review.diagnoses[:1] %}<div class="error"><strong>Likely cause:</strong> {{ d.cause }}</div>{% endfor %}
+        {% else %}<p class="hint">No log yet.</p>{% endif %}
+        <p><a class="btn" href="#log" data-tab-link="log">Open the log</a></p>
+      </section>
+    </aside>
+  </div>
+</section>
+
+<section class="tabpanel panel" id="cards" data-tabpanel aria-labelledby="cards-title">
+  <h2 class="panel-title" id="cards-title">Paste into</h2>
+  {{ switcher("Apps", consumers, consumer, base, "#cards") }}
+  {% if agents %}{{ switcher("Coding agents", agents, consumer, base, "#cards") }}{% endif %}
+  <div class="card-grid">
+    {{ cards(urls) }}
+    <details class="card"><summary>On this machine only (<code>mnm url --direct</code>)</summary>
+      <p class="hint">The engine's own address, without the router: for debugging on the box. Nothing loads it on demand there; start it first.</p>
+      <div class="url"><code>{{ engine_origin(recipe) }}</code><button type="button" class="btn copy" data-copy="{{ engine_origin(recipe) }}" onclick="copyText(this)">Copy</button></div>
+    </details>
+  </div>
+</section>
+
+{% if recipe.modality.value in runnable %}{% include "_run.html" %}{% endif %}
+{% include "_try.html" %}
+{% if recipe.engine.value == 'llamacpp' and recipe.modality.value in ("chat", "coding", "vision_chat") %}{% include "_tuning.html" %}{% endif %}
+
+<section class="tabpanel panel" id="settings" data-tabpanel aria-labelledby="set-title">
+  <h2 class="panel-title" id="set-title">Settings</h2>
+  <p class="hint">Saved at once; the engine's settings apply on its next start{% if controls | selectattr("0.live") | list %}, the ones marked <span class="now">applies now</span> at the router's next request{% endif %}.</p>
+  {% for line in saved %}{% if line.warn %}<div class="warnline">{{ line.text }}</div>{% else %}<p class="hint">{{ line.text }}</p>{% endif %}{% endfor %}
+  <form method="post" action="{{ base }}/settings">
+    <div class="settings-grid">
+      {% for c, value, note in controls %}
+      <div class="field">
+        <div class="field-head">
+          <label for="c_{{ c.key }}">{{ c.label }}{% if c.live %} <span class="now" title="The router reads it at every request">applies now</span>{% endif %}</label>
+          {% if c.kind == Kind.CHOICE %}<select id="c_{{ c.key }}" name="c_{{ c.key }}" aria-describedby="h_{{ c.key }}">{% if c.nullable %}<option value="" {% if value == '' %}selected{% endif %}>auto</option>{% endif %}{% for opt in c.choices %}<option value="{{ opt }}" {% if opt == value %}selected{% endif %}>{{ opt }}</option>{% endfor %}</select>
+          {% elif c.kind == Kind.BOOL %}<select id="c_{{ c.key }}" name="c_{{ c.key }}" aria-describedby="h_{{ c.key }}">{% if c.nullable %}<option value="" {% if value == '' %}selected{% endif %}>auto</option>{% endif %}<option value="on" {% if value == 'on' %}selected{% endif %}>on</option><option value="off" {% if value == 'off' %}selected{% endif %}>off</option></select>
+          {% elif c.kind == Kind.TEXT %}<input type="text" class="wide" id="c_{{ c.key }}" name="c_{{ c.key }}" value="{{ value }}" aria-describedby="h_{{ c.key }}">
+          {% else %}<input type="text" id="c_{{ c.key }}" name="c_{{ c.key }}" value="{{ value }}" aria-describedby="h_{{ c.key }}" placeholder="{{ 'auto' if c.nullable else '' }}" inputmode="{{ 'numeric' if c.kind == Kind.INT else 'decimal' }}" size="9">{% endif %}
+        </div>
+        <div id="h_{{ c.key }}">
+          <p class="help">{{ c.help }}</p>
+          <p class="rec">Recommended: {{ c.recommended }}</p>
+          {% if note %}<p class="rec">{{ note }}</p>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="savebar"><button class="btn primary">Save settings</button> <span class="hint">Only what you changed is saved.</span></div>
+  </form>
+  <form method="post" action="{{ base }}/replan" class="row replan">
+    <button class="btn" title="After a hardware change: plans context, layers and size for the card as it is now">Re-plan for this machine</button>
+    <label class="check hint"><input type="checkbox" name="any_quant" value="on"> any quant (may download another file; <code>--any-quant</code>)</label>
+  </form>
+  <section class="remove-zone" id="remove" aria-labelledby="rm-title">
+    <h3 id="rm-title">Remove <code>mnm rm</code></h3>
+    <p class="hint">Stops it and deletes its saved settings, log and readings. Downloaded files stay unless you pick the second; files another instance uses always stay.</p>
+    <div class="actions">
+      <form class="inline" method="post" action="{{ base }}/remove" onsubmit='return confirm({{ ("Remove " ~ recipe.name ~ "? Downloaded files are kept.") | tojson }})'><button class="btn danger">Remove</button></form>
+      <form class="inline" method="post" action="{{ base }}/remove" onsubmit='return confirm({{ ("Remove " ~ recipe.name ~ " and delete the files only it uses? Adding it again downloads them again.") | tojson }})'><input type="hidden" name="files" value="on"><button class="btn danger" title="Files another instance uses stay (mnm rm --files)">Remove and delete its files</button></form>
+    </div>
+  </section>
+</section>
+
+{% if recipe.engine.value == 'sdcpp' %}{% include "_loras.html" %}{% endif %}
+
+{% include "_log.html" %}
+{% endblock %}

@@ -1,0 +1,2210 @@
+# ---- makenomistakes/fit/estimate.py ----
+"""Estimate what a llama.cpp instance will need and whether it fits.
+
+Everything here is an estimate and is labelled as such in the UI. The KV cache term uses
+the real layer count, KV-head count and head size from the GGUF header, which is what the
+Odysseus heuristic (8 KB per token per billion parameters) gets wrong for GQA models.
+Constants are calibrated against two measured runs on an RTX 4070 under WSL2
+(nvidia-smi `memory.used` delta before/after `mnm start`, which is also what the budget
+reads, so estimate and budget see the same accounting):
+
+    Qwen3-8B   Q4_K_M (4.68 GiB file)  ctx 8192  KV q8_0  -> 5.13 GiB used
+    Qwen3-8B   Q4_K_M                  ctx 16384 KV q8_0  -> 5.83 GiB used, 75.4 tok/s
+    Qwen3-0.6B Q4_K_M (0.37 GiB file)  ctx 16384 KV q8_0  -> ~1.55 GiB used, 325 tok/s
+
+The 8B run uses *less* than file + KV because llama.cpp keeps the input embedding table in
+system RAM; the estimate does not subtract it, so it stays a few percent conservative.
+Decode time is bandwidth-bound plus a fixed per-layer kernel-launch cost, which is what
+keeps a 0.6B model at 325 tok/s instead of the 1,200 that bandwidth alone would allow. The
+speeds were read with every block on the GPU: earlier readings of 52 and 180 tok/s ran
+`-ngl <blocks>`, which leaves block 0 on the CPU for every token.
+"""
+
+from __future__ import annotations
+
+import math
+from enum import StrEnum
+
+from pydantic import BaseModel
+
+from makenomistakes.engine_args import DRAFT_KV, KvType, LlamaCppArgs
+from makenomistakes.fit.cpu_rates import CPU_BANDWIDTH, CPU_EXPERT_RATE, EXPERT_TOUCH_SECONDS
+from makenomistakes.fit.device_row import (
+    GPU_EFFICIENCY,
+    IQ_GRID_EFFICIENCY,
+    LAYER_OVERHEAD_SECONDS,
+    RTX_4070,
+    RUNTIME_OVERHEAD_BYTES,
+    DeviceRow,
+)
+from makenomistakes.fit.devices import (
+    DEFAULT_GPU_BANDWIDTH,
+    DEFAULT_GPU_TFLOPS,
+)
+from makenomistakes.fit.kv_terms import (
+    DEFAULT_UBATCH,
+    DEFAULT_VOCAB,
+    KV_BYTES_PER_VALUE,
+    KV_PAD,
+    LOGIT_ROWS,
+    VISION_COMPUTE_BYTES,
+    compute_buffer_bytes,
+    kv_cache_bytes,
+    recurrent_state_bytes,
+)
+from makenomistakes.gguf.file_types import GRID_QUANT_IDS
+from makenomistakes.gguf.reader import GgufHeader
+
+__all__ = [  # the 4070's: `fit/devices.py` is the table
+    "CPU_BANDWIDTH",
+    "CPU_EXPERT_RATE",
+    "DEFAULT_GPU_BANDWIDTH",
+    "DEFAULT_GPU_TFLOPS",
+    "DEFAULT_UBATCH",
+    "DEFAULT_VOCAB",
+    "GPU_EFFICIENCY",
+    "IQ_GRID_EFFICIENCY",
+    "KV_BYTES_PER_VALUE",
+    "KV_PAD",
+    "LAYER_OVERHEAD_SECONDS",
+    "LOGIT_ROWS",
+    "RUNTIME_OVERHEAD_BYTES",
+    "VISION_COMPUTE_BYTES",
+    "compute_buffer_bytes",
+    "kv_cache_bytes",
+    "recurrent_state_bytes",
+]
+
+MIB = 1024 * 1024
+GIB = 1024 * MIB
+# GPU_EFFICIENCY, IQ_GRID_EFFICIENCY, LAYER_OVERHEAD_SECONDS and RUNTIME_OVERHEAD_BYTES are the
+# 4070's (`fit.device_row`, where their readings are told): `fit/devices.py` is the table.
+# CPU_BANDWIDTH, CPU_EXPERT_RATE and the touch cost are the CPU side: `fit.cpu_rates`.
+COMFORTABLE_HEADROOM = 0.25  # a fit is comfortable with this fraction of free VRAM to spare
+
+
+class MemoryEstimate(BaseModel):
+    weights_bytes: int
+    compute_bytes: int
+    overhead_bytes: int
+    kv_bytes: int = 0  # llama.cpp only
+    state_bytes: int = 0  # llama.cpp hybrids: the linear-attention layers' recurrent state
+    projector_bytes: int = 0  # llama.cpp vision only
+    companion_bytes: int = 0  # image kits: VAE and text encoders kept on the GPU
+    # llama.cpp only: the output head (vocab x embedding length), which `-ngl` offloads first,
+    # and the input embedding table of the same size, which stays in RAM.
+    head_bytes: int = 0
+    ctx: int = 0
+    kv_type: KvType = KvType.F16
+
+    @property
+    def total_bytes(self) -> int:
+        return (
+            self.weights_bytes
+            + self.kv_bytes
+            + self.state_bytes
+            + self.compute_bytes
+            + self.projector_bytes
+            + self.companion_bytes
+            + self.overhead_bytes
+        )
+
+
+class FitLevel(StrEnum):
+    COMFORTABLE = "comfortable"  # at most 75 % of free VRAM
+    TIGHT = "tight"  # fits, with less than 25 % headroom
+    OFFLOAD = "offload"  # some layers stay in system RAM; slower
+    NO_FIT = "no_fit"
+
+
+class Fit(BaseModel):
+    level: FitLevel
+    gpu_layers: int  # the `-ngl` count before `ngl_for`: blocks for a full fit (it adds the
+    # output layer), up to blocks for an offload (block 0 in RAM), 0 for NO_FIT
+    headroom_bytes: int  # negative when it does not fit on the GPU
+    gpu_bytes: int  # what this fit puts on the GPU (less than the estimate when offloading)
+    # Mixture-of-experts offload: this many layers keep their routed experts in RAM
+    # (`--n-cpu-moe`), everything else on the GPU; 0 for dense models and full fits.
+    cpu_moe_layers: int = 0
+    # The free room this fit was judged against, in the planner's own terms: each planner's
+    # (llama.cpp keeps WSL's margin out of it, `Budget.plan_free_bytes`; the others judge the
+    # free VRAM). `mnm why` says it as the planner saw it (one rule assumed for every engine
+    # would say a margin only llama.cpp keeps). 0: not judged (a speed model's fit).
+    room_bytes: int = 0
+
+
+def headroom_level(estimate_bytes: int, vram_free_bytes: int) -> FitLevel:
+    """The one rule for "does this amount fit in that much free VRAM" (never OFFLOAD)."""
+    headroom = vram_free_bytes - estimate_bytes
+    if headroom >= COMFORTABLE_HEADROOM * vram_free_bytes:
+        return FitLevel.COMFORTABLE
+    if headroom >= 0:
+        return FitLevel.TIGHT
+    return FitLevel.NO_FIT
+
+
+def estimate_memory(  # noqa: PLR0913 - the card's row is the eighth, by keyword
+    header: GgufHeader,
+    weights_bytes: int,
+    ctx: int,
+    kv_type: KvType,
+    projector_bytes: int = 0,
+    ubatch: int = DEFAULT_UBATCH,
+    whole_input: bool = False,
+    *,
+    device: DeviceRow = RTX_4070,
+) -> MemoryEstimate:
+    """`device` is the card's row: its backend's context and scratch."""
+    return MemoryEstimate(
+        weights_bytes=weights_bytes,
+        head_bytes=head_bytes(header, weights_bytes),
+        kv_bytes=kv_cache_bytes(header, ctx, kv_type, ubatch),
+        state_bytes=recurrent_state_bytes(header),
+        compute_bytes=compute_buffer_bytes(
+            header, ubatch, with_projector=projector_bytes > 0, whole_input=whole_input
+        ),
+        projector_bytes=projector_bytes,
+        overhead_bytes=device.context_bytes,
+        ctx=ctx,
+        kv_type=kv_type,
+    )
+
+
+def per_card(estimate: MemoryEstimate, cards: int) -> MemoryEstimate:
+    """The estimate on `cards` cards (`fit.cards`): a CUDA context and a compute buffer
+    on each, which llama.cpp allocates per device (unmeasured). One card is as it was."""
+    if cards < 2:
+        return estimate
+    extra = (cards - 1) * (estimate.overhead_bytes + estimate.compute_bytes)
+    return estimate.model_copy(update={"overhead_bytes": estimate.overhead_bytes + extra})
+
+
+def _expert_offload(
+    estimate: MemoryEstimate, header: GgufHeader, vram_free_bytes: int, ram_free_bytes: int
+) -> Fit | None:
+    """A mixture-of-experts model that does not fit whole keeps the routed experts of its
+    first N layers in RAM (`--n-cpu-moe N`) before any block goes there: a token reads
+    only its active experts, so the GPU still runs every block's attention. The fewest
+    layers that fit comfortably, else the fewest that fit at all; None when the experts of
+    every layer in RAM would still not fit, or RAM cannot hold them."""
+    per_layer, layers = header.expert_bytes_per_layer, header.block_count or 0
+    if not header.uniform_experts:
+        return _uneven_expert_offload(estimate, header, vram_free_bytes, ram_free_bytes)
+    if not per_layer or not layers:
+        return None
+    # The most the GPU may hold at each level, so the fewest layers whose experts must go.
+    for allowed in ((1 - COMFORTABLE_HEADROOM) * vram_free_bytes, vram_free_bytes):
+        cpu_layers = math.ceil((estimate.total_bytes - allowed) / per_layer)
+        if cpu_layers > layers or cpu_layers * per_layer > ram_free_bytes:
+            continue  # that level is out of reach (or RAM cannot hold it): try the next
+        return Fit(
+            level=FitLevel.OFFLOAD,
+            gpu_layers=layers,
+            headroom_bytes=vram_free_bytes - estimate.total_bytes,
+            room_bytes=vram_free_bytes,
+            gpu_bytes=estimate.total_bytes - max(cpu_layers, 1) * per_layer,
+            cpu_moe_layers=max(cpu_layers, 1),
+        )
+    return None
+
+
+def _uneven_expert_offload(
+    estimate: MemoryEstimate, header: GgufHeader, vram_free_bytes: int, ram_free_bytes: int
+) -> Fit | None:
+    """`_expert_offload` for blocks whose experts differ (from the tensor infos):
+    `--n-cpu-moe N` moves the experts of blocks 0 to N - 1, which may hold none (Bolt's
+    Mamba and attention blocks), so N is the first block count whose experts free enough."""
+    per_block = header.expert_layer_bytes()
+    first = [0]
+    for size in per_block:
+        first.append(first[-1] + size)
+    if not first[-1]:
+        return None
+    for allowed in ((1 - COMFORTABLE_HEADROOM) * vram_free_bytes, vram_free_bytes):
+        need = estimate.total_bytes - allowed
+        n = next((n for n in range(1, len(first)) if first[n] >= need and first[n]), None)
+        if n is None or first[n] > ram_free_bytes:
+            continue
+        return Fit(
+            level=FitLevel.OFFLOAD,
+            gpu_layers=len(per_block),
+            headroom_bytes=vram_free_bytes - estimate.total_bytes,
+            room_bytes=vram_free_bytes,
+            gpu_bytes=estimate.total_bytes - first[n],
+            cpu_moe_layers=n,
+        )
+    return None
+
+
+def _all_experts_offload(
+    estimate: MemoryEstimate, header: GgufHeader, vram_free_bytes: int, ram_free_bytes: int
+) -> Fit | None:
+    """`--cpu-moe -ngl N`: a MoE whose dense part
+    does not fit the card keeps every block's experts in RAM and as many dense blocks on the
+    card as fit, the last ones (llama.cpp leaves the first `blocks + 1 - ngl` in RAM). Rendered
+    as `--n-cpu-moe <blocks>` and `-ngl N + 1` (`ngl_for` adds the output layer): no new
+    args. `gpu_layers` is the blocks on the card; None for a dense model, when not one block
+    fits, or when RAM cannot hold the experts and the RAM-held blocks."""
+    layers = header.block_count or 0
+    experts = header.expert_layer_bytes() if header.is_moe else ()
+    if not layers or not any(experts):
+        return None
+    per_block = block_bytes(estimate, layers)
+    dense = [max(per_block - size, 0.0) for size in experts]
+    fixed = estimate.total_bytes - estimate.weights_bytes + estimate.head_bytes
+    room, held = float(vram_free_bytes - fixed), 0  # the whole room, as a layer offload's
+    while held < layers and dense[layers - 1 - held] <= room:
+        room -= dense[layers - 1 - held]
+        held += 1
+    on_card = int(fixed + sum(dense[layers - held :]))
+    if not held or estimate.total_bytes - on_card > ram_free_bytes:
+        return None
+    return Fit(
+        level=FitLevel.OFFLOAD,
+        gpu_layers=held,
+        headroom_bytes=vram_free_bytes - estimate.total_bytes,
+        room_bytes=vram_free_bytes,
+        gpu_bytes=on_card,
+        cpu_moe_layers=layers,
+    )
+
+
+def head_bytes(header: GgufHeader, weights_bytes: int) -> int:
+    """The output head (and the input table, the same shape) as the header sizes it, never
+    more than a quarter of the file (a tiny vocab-heavy model keeps the split sane)."""
+    return min(header.token_embedding_bytes, weights_bytes // 4)
+
+
+def block_bytes(estimate: MemoryEstimate, layers: int) -> float:
+    """One transformer block's weights: the file less the embedding table and the output
+    head (each `head_bytes`), over the block count."""
+    if not layers:
+        return 0.0
+    return max(estimate.weights_bytes - 2 * estimate.head_bytes, 0) / layers
+
+
+def gpu_bytes(estimate: MemoryEstimate, layers: int, gpu_layers: int) -> int:
+    """What sits on the GPU with `-ngl gpu_layers` of `layers` blocks: everything but the
+    weights of the layers left in RAM. llama.cpp offloads the output layer first, then
+    blocks from the top: `-ngl k` is the head plus k - 1 blocks, so `-ngl <blocks>`
+    keeps block 0 in RAM (`ngl_for`) and only blocks + 1 is the whole file. The one offload
+    split; the planner and `settings_gpu_bytes` both use it."""
+    if not layers or gpu_layers > layers:
+        return estimate.total_bytes
+    non_weight = estimate.total_bytes - estimate.weights_bytes
+    if gpu_layers <= 0:
+        return int(non_weight)
+    return int(non_weight + estimate.head_bytes + (gpu_layers - 1) * block_bytes(estimate, layers))
+
+
+def settings_gpu_bytes(
+    header: GgufHeader,
+    weights_bytes: int,
+    projector_bytes: int,
+    args: LlamaCppArgs,
+    whole_input: bool = False,
+    rollback: int = 0,
+) -> int:
+    """What llama-server puts on the GPU with exactly these saved settings (`whole_input`:
+    an embedding or rerank recipe). The planner always emits `-np 1`; a hand-set `parallel`
+    multiplies the sliding-window layers' cache and a hybrid's recurrent state, which an
+    MTP draft multiplies by `1 + rollback` too (`recurrent_state_bytes`). `cpu_moe_layers`
+    keeps that many layers' experts in RAM, and `moe_cache_mib` of the card caches the
+    hottest of them."""
+    ubatch = args.ubatch or DEFAULT_UBATCH
+    estimate = estimate_memory(
+        header, weights_bytes, args.ctx, args.kv_type, projector_bytes, ubatch, whole_input
+    )
+    if args.parallel > 1 or rollback:
+        kv = kv_cache_bytes(header, args.ctx, args.kv_type, ubatch, args.parallel)
+        state = recurrent_state_bytes(header, args.parallel, rollback)
+        estimate = estimate.model_copy(update={"kv_bytes": kv, "state_bytes": state})
+    placement = args.placement  # Each card's blocks and experts, the rest in RAM
+    cards = len(placement.cards) if placement is not None else len(args.tensor_split or ())
+    estimate = per_card(estimate, cards)  # several cards: a context and buffer on each
+    blocks = header.block_count or 0
+    # The cache costs its budget and nothing more on the card (llama.cpp c7fc509,
+    # src/llama-moe-cache.cpp: each group's banks take `n_slots + 1` expert slots, the
+    # slot count chosen so the whole allocation stays within its share of the budget; the
+    # slot maps live in host memory; no staging buffer beside it). A full card seen beside the
+    # cache was another instance still running a draft its recipe had dropped
+    # (`instance_vram.started_with`), not the cache's own size.
+    cache = (args.moe_cache_mib or 0) * MIB if args.experts_in_ram else 0
+    if placement is not None:
+        sizes = header.expert_layer_bytes()
+        in_ram = sum(sizes[b] for b in placement.in_ram if b < len(sizes))
+        return estimate.total_bytes - in_ram + placement.copy_bytes + cache
+    # Both count from layer 0: `-ngl` leaves the first `blocks + 1 - ngl` blocks in RAM whole
+    # (their experts with them, already out of `gpu_bytes`), `--n-cpu-moe N` the experts of
+    # the first N. Only the expert layers above the RAM-held blocks come off again.
+    cpu_blocks = max(blocks + 1 - args.gpu_layers, 0)  # gpu_layers >= 1: at most `blocks`
+    experts_only = max(min(args.cpu_moe_layers or 0, blocks) - cpu_blocks, 0)
+    if header.uniform_experts:
+        in_ram = experts_only * header.expert_bytes_per_layer
+    else:  # the blocks above the RAM-held ones, each its own
+        in_ram = sum(header.expert_layer_bytes()[cpu_blocks : cpu_blocks + experts_only])
+    return gpu_bytes(estimate, blocks, args.gpu_layers) - in_ram + cache
+
+
+def ngl_for(fit: Fit) -> int:
+    """llama.cpp's `-ngl` for a fit. It offloads `n_layer + 1` layers, the output layer last,
+    so `-ngl <block count>` keeps block 0 on the CPU for every token (llama-model.cpp
+    `i_gpu_start = n_layer + 1 - n_gpu_layers`). Everything on the GPU is
+    the block count plus one; a partial offload keeps the planner's count. An expert offload
+    (`cpu_moe_layers`) keeps every block on the GPU: only the experts move."""
+    whole = fit.level in (FitLevel.COMFORTABLE, FitLevel.TIGHT) or fit.cpu_moe_layers > 0
+    return fit.gpu_layers + 1 if whole else fit.gpu_layers
+
+
+def every_expert_in_ram(fit: Fit, header: GgufHeader) -> bool:
+    """The `--cpu-moe -ngl N` plan: every block's experts in RAM, some blocks too."""
+    blocks = header.block_count or 0
+    return bool(blocks) and fit.cpu_moe_layers >= blocks and fit.gpu_layers < blocks
+
+
+def fit_estimate(
+    estimate: MemoryEstimate,
+    header: GgufHeader,
+    vram_free_bytes: int,
+    ram_free_bytes: int,
+    *,
+    all_experts: bool = True,
+) -> Fit:
+    """The best fit level; `all_experts` False leaves out the `--cpu-moe -ngl N` plan (the
+    planner prices both and keeps the faster, `fit.profiles`)."""
+    headroom = vram_free_bytes - estimate.total_bytes
+    layers = header.block_count or 0
+    level = headroom_level(estimate.total_bytes, vram_free_bytes)
+    if level is not FitLevel.NO_FIT:
+        return Fit(
+            level=level,
+            gpu_layers=layers,
+            headroom_bytes=headroom,
+            gpu_bytes=estimate.total_bytes,
+            room_bytes=vram_free_bytes,
+        )
+
+    experts = _expert_offload(estimate, header, vram_free_bytes, ram_free_bytes)
+    if experts is None and all_experts:  # Every expert in RAM, dense blocks on card
+        experts = _all_experts_offload(estimate, header, vram_free_bytes, ram_free_bytes)
+    if experts is not None:
+        return experts
+    non_weight = estimate.total_bytes - estimate.weights_bytes
+    per_block = block_bytes(estimate, layers)
+    room = vram_free_bytes - non_weight - estimate.head_bytes  # the head goes first
+    # At most `layers` (block 0 in RAM): the whole file did not fit, so blocks + 1 is out.
+    gpu_layers = min(1 + int(room // per_block), layers) if per_block and room >= 0 else 0
+    on_gpu = gpu_bytes(estimate, layers, gpu_layers)
+    spill = estimate.total_bytes - on_gpu
+    if gpu_layers > 0 and spill <= ram_free_bytes:
+        return Fit(
+            level=FitLevel.OFFLOAD,
+            gpu_layers=gpu_layers,
+            headroom_bytes=headroom,
+            gpu_bytes=on_gpu,
+            room_bytes=vram_free_bytes,
+        )
+    return Fit(
+        level=FitLevel.NO_FIT,
+        gpu_layers=0,
+        headroom_bytes=headroom,
+        gpu_bytes=estimate.total_bytes,
+        room_bytes=vram_free_bytes,
+    )
+
+
+def estimate_tokens_per_second(
+    header: GgufHeader,
+    weights_bytes: int,
+    fit: Fit,
+    gpu_bandwidth: int,
+    expert_rate: float = CPU_EXPERT_RATE,
+    *,
+    device: DeviceRow = RTX_4070,
+    layer_rate: float = CPU_BANDWIDTH,
+) -> float:
+    """Seconds per token = bytes streamed over effective bandwidth + per-layer launch cost.
+    The input embedding table is read one row per token, never streamed. A
+    mixture-of-experts model reads its dense weights and only the active experts; the
+    experts of `cpu_moe_layers` layers come from RAM at `expert_rate` (this box's,
+    `machine_facts`, else the RTX 4070 machine's `CPU_EXPERT_RATE`), each used expert held
+    there at `EXPERT_TOUCH_SECONDS` more (`fit.cpu_rates`); whole blocks left in RAM at
+    `layer_rate` (the box's probe x `LLAMA_RAM_SHARE`, else the RTX 4070 machine's
+    `CPU_BANDWIDTH`)."""
+    fixed, from_ram = decode_parts(
+        header, weights_bytes, fit, gpu_bandwidth, device=device, layer_rate=layer_rate
+    )
+    return 1.0 / (fixed + from_ram / expert_rate)
+
+
+def decode_parts(
+    header: GgufHeader,
+    weights_bytes: int,
+    fit: Fit,
+    gpu_bandwidth: int,
+    *,
+    device: DeviceRow = RTX_4070,
+    layer_rate: float = CPU_BANDWIDTH,
+) -> tuple[float, float]:
+    """A decoded token's seconds apart from the RAM-held experts' bytes, and those bytes: the
+    speed model split so a reading can be turned back into the expert rate. The card's
+    row gives the efficiency and the launch term; the seconds include each RAM-held
+    used expert's touch (`EXPERT_TOUCH_SECONDS`), which the rate does not carry."""
+    layers = header.block_count or 1
+    streamed = weights_bytes - head_bytes(header, weights_bytes)  # the table stays in RAM
+    gpu_fraction = 0.0 if fit.level is FitLevel.NO_FIT else min(fit.gpu_layers / layers, 1.0)
+    # The blocks whose experts the CPU reads: those `--n-cpu-moe` names, and those
+    # left in RAM whole (`-ngl` below the block count), whose experts it reads the same way
+    in_ram = min(max(fit.cpu_moe_layers, round(layers * (1 - gpu_fraction))), layers)
+    if header.uniform_experts:
+        experts = min(header.expert_bytes_per_layer * layers, streamed)
+        active_fraction, used = 1.0, 0
+        if header.is_moe and header.expert_count and header.expert_used_count:
+            active_fraction = header.expert_used_count / header.expert_count  # No floor
+            used = header.expert_used_count
+        per_token = (streamed - experts) + experts * active_fraction
+        from_ram = experts * (in_ram / layers) * active_fraction
+        touched = used * in_ram if experts else 0
+    else:
+        per_token, from_ram = _uneven_reads(header, streamed, in_ram)
+        touched = sum(header.experts_used()[:in_ram])
+    effective = 1.0 / ((gpu_fraction / gpu_bandwidth) + ((1 - gpu_fraction) / layer_rate))
+    efficiency = decode_efficiency(header, device)
+    fixed = (per_token - from_ram) / (effective * efficiency) + layers * device.launch_seconds
+    return fixed + touched * EXPERT_TOUCH_SECONDS, from_ram
+
+
+def decode_efficiency(header: GgufHeader, device: DeviceRow = RTX_4070) -> float:
+    """The card's decode efficiency for this file: the codebook i-quants' own, a MoE's where
+    the row has one, else the row's."""
+    if header.file_type in GRID_QUANT_IDS:
+        return device.iq_grid_efficiency
+    if header.is_moe and device.moe_efficiency is not None:
+        return device.moe_efficiency
+    return device.efficiency
+
+
+def _uneven_reads(header: GgufHeader, streamed: int, cpu_moe_layers: int) -> tuple[float, float]:
+    """A decoded token's bytes and those of them read from RAM, block by block: each
+    block's active share of its own experts; the first `cpu_moe_layers` blocks' from RAM."""
+    sizes = header.expert_layer_bytes()
+    shares = header.expert_shares()
+    scale = min(1.0, streamed / sum(sizes)) if sum(sizes) else 1.0  # never more than the file
+    active = [size * scale * share for size, share in zip(sizes, shares, strict=True)]
+    experts = sum(sizes) * scale
+    return (streamed - experts) + sum(active), sum(active[:cpu_moe_layers])
+
+
+def draft_gpu_bytes(
+    header: GgufHeader, file_bytes: int, args: LlamaCppArgs, mtp: bool = False
+) -> int:
+    """What a draft model adds on the GPU beside its target: every layer of it (`-ngld
+    all`) less the input embedding table (`head_bytes`, read one row per token from RAM, as
+    the target's is), its KV cache at the target's context and slots (llama.cpp sizes the
+    draft's context from the target's) at f16 (`DRAFT_KV`, `-ctkd/-ctvd`), and its own compute
+    buffer. An MTP head (`mtp`) runs in an MTP context: only its MTP blocks keep KV
+    (none for Gemma 4's assistant, which shares the model's). Its speed is not modelled: what
+    a draft gains is read on the box (`mnm try --speed`)."""
+    ubatch = args.ubatch or DEFAULT_UBATCH
+    weights = file_bytes - head_bytes(header, file_bytes)
+    kv = kv_cache_bytes(header, args.ctx, DRAFT_KV, ubatch, args.parallel, mtp=mtp)
+    return weights + kv + compute_buffer_bytes(header, ubatch)
+# ---- makenomistakes/router_queue.py ----
+"""The router's queue: which requests wait for a model, and for how long.
+
+Every work request the router takes (`request_meter.measured_route`: a generation POST, on the
+OpenAI routes and Ollama's) has a `Ticket` from before it is counted in flight to its end
+(`Router.request`). Before it is forwarded it waits for its model (`Router.ready`: loaded first
+when parked, or its turn behind a start in progress, or the card taken back from a tune or a
+training); past `LOAD_GRACE` that is a load wait. Forwarded, it waits for a slot while the
+engine holds as many requests as it serves at once (`model_meta.at_once`). By the router's
+count a ticket has a slot while it is among the first `slots` of its container start's tickets
+at the engine, in the order they went: every engine here takes them in order (llama-server's
+deferred queue is first in, first out; sd-server, whisper-server and audio.cpp's server run
+one request at a time behind one lock, each read in its source). llama.cpp's answer says it
+from inside too (`engine_figures`): its `timings` give the time it read the prompt and
+generated, so the rest of the request's time at the engine it waited, and the tokens the
+request held, which a context split into more slots would have to hold.
+
+`waiting` is what waits now (`/__mnm/busy`, `/metrics`, the Status board, `mnm ls`). A window
+per instance gathers the figures (`QueueFigures`): a burst with less than `QUIET_SECONDS`
+between requests, within one container start (a new start closes it), cut at `WINDOW_SECONDS`
+whatever is in flight (the next window opens at once and takes the rest). A window counts
+under the settings its container started with: that start's load reading
+(`measurements.start_reading`, injected as `started_with`), else the recipe the request found.
+The router's sweep writes each closed window that reached the engine as a `Kind.QUEUE` reading
+(`write`); a window in memory when the router stops is lost. Not counted as a wait: an
+sd-server job queued through its own route (`img_gen`, `vid_gen`: no request in flight while
+it runs), and a request vLLM holds back for its KV cache below `--max-num-seqs`. Nothing here
+fails a request: a figure that cannot be read is left out.
+"""
+
+from __future__ import annotations
+
+import math
+import threading
+import time
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+
+from makenomistakes.loading_notes import GRACE_SECONDS
+from makenomistakes.measurements import Kind, Reading, reading_for
+from makenomistakes.model_meta import at_once
+from makenomistakes.queue_figures import QueueFigures, Reason, Tally, Waiting
+from makenomistakes.reading_stamp import stamp_for
+from makenomistakes.recipes import Recipe
+from makenomistakes.reply_tail import last_number
+from makenomistakes.request_meter import Container
+
+if TYPE_CHECKING:
+    from makenomistakes.instances import InstanceService
+
+LOAD_GRACE = GRACE_SECONDS  # a loaded model is let through well inside it (loading notes')
+QUIET_SECONDS = 120.0  # a window ends after this long with nothing in flight
+WINDOW_SECONDS = 3600.0  # and is cut at this age whatever is in flight
+WAIT_FLOOR = 0.25  # under this outside llama.cpp's prompt and generation: HTTP, the tokenizer
+MAX_TOKENS = 10**9  # a count past this in a reply's tail is not one request's tokens
+
+StartedWith = Callable[[str, str], Reading | None]  # (name, started at) -> its load reading
+
+
+def _no_reading(_name: str, _started: str) -> Reading | None:
+    return None
+
+
+@dataclass(eq=False)
+class Ticket:
+    """One request from its arrival to its end; `counted` False: not work, never kept. The
+    handler sets `tail` (the end of the reply it passed on) before the ticket ends."""
+
+    name: str
+    arrived: float
+    counted: bool = True
+    forwarded: float | None = None
+    start: str | None = None  # the container start it went to
+    queued: bool = False  # forwarded while every slot was taken
+    began: float | None = None  # when it had a slot, by the router's count
+    load_waited: float = 0.0  # its wait for the model, past the grace (counted where it ends)
+    done: bool = False
+    tail: bytes = b""
+
+
+@dataclass(frozen=True)
+class Inside:
+    """What an answer says of its request from inside the engine (None: it does not say)."""
+
+    seconds: float | None  # llama.cpp's prompt and generation time
+    tokens: int | None  # the tokens it held: cached, read and written
+
+
+def engine_figures(tail: bytes) -> Inside:
+    """From the end of an answer (`reply_tail`): llama.cpp's `timings` (its seconds, and the
+    tokens as `cache_n + prompt_n + predicted_n`), else the tokens of an OpenAI `usage` block
+    (vLLM, or a llama.cpp route without timings) or Anthropic's (`/v1/messages`). A figure out
+    of what one request can be (negative, past `MAX_TOKENS`) is left out."""
+    if not tail:
+        return Inside(None, None)
+
+    def got(key: str) -> float | None:
+        return last_number(tail, key)
+
+    prompt, predicted = got("prompt_ms"), got("predicted_ms")
+    seconds = (prompt + predicted) / 1000 if prompt is not None and predicted is not None else None
+    held = [got("cache_n"), got("prompt_n"), got("predicted_n")]
+    tokens: float | None = None
+    if all(part is not None for part in held):
+        tokens = sum(part for part in held if part is not None)
+    elif (total := got("total_tokens")) is not None:
+        tokens = total
+    elif (said := got("input_tokens")) is not None and (wrote := got("output_tokens")) is not None:
+        tokens = said + wrote + (got("cache_read_input_tokens") or 0.0)
+    return Inside(
+        seconds if seconds is not None and math.isfinite(seconds) else None,
+        int(tokens) if tokens is not None and tokens <= MAX_TOKENS else None,
+    )
+
+
+@dataclass
+class _Window:
+    recipe: Recipe  # the request's, at the window's open
+    opened: float  # the clock's
+    last: float  # the clock's, at its newest arrival or end
+    figures: QueueFigures
+    started: str | None = None  # the container start it counts (None until one went to it)
+    build: str | None = None
+    load: Reading | None = None  # that start's load reading: the settings it counts under
+
+
+@dataclass
+class _Model:
+    pending: list[Ticket] = field(default_factory=list)  # arrived, not forwarded
+    engine: list[Ticket] = field(default_factory=list)  # forwarded, not ended, in their order
+    window: _Window | None = None
+
+    @property
+    def in_flight(self) -> int:
+        return len(self.pending) + len(self.engine)
+
+
+@dataclass(frozen=True)
+class Closed:
+    """A window done, for the sweep to write."""
+
+    recipe: Recipe
+    build: str | None
+    started: str | None
+    load: Reading | None
+    figures: QueueFigures
+
+
+def _utc() -> datetime:
+    return datetime.now(UTC)
+
+
+class QueueBook:
+    """One per router; thread-safe (its lock is held for counting only)."""
+
+    def __init__(
+        self,
+        container: Container,  # `Router.container`: the router's own cache, Docker once
+        started_with: StartedWith = _no_reading,
+        clock: Callable[[], float] = time.monotonic,
+        wall: Callable[[], datetime] = _utc,
+    ) -> None:
+        self._container = container
+        self._started_with = started_with
+        self._clock = clock
+        self._wall = wall
+        self._lock = threading.Lock()
+        self._models: dict[str, _Model] = {}
+        # name -> (its container start, that start's load reading or None): asked once a start
+        self._loads: dict[str, tuple[str, Reading | None]] = {}
+        self._closed: list[Closed] = []
+        self._totals: dict[tuple[str, Reason], Tally] = {}  # since the router started
+
+    def take(self, recipe: Recipe, work: bool) -> Ticket:
+        """A ticket for a request about to wait for `recipe`; one that is not work (a listing,
+        a page, a poll: `request_meter.measured_route`) is never counted."""
+        if not work:
+            return Ticket(recipe.name, 0.0, counted=False)
+        with self._lock:  # every clock read under the lock: the order of events is the lock's
+            now = self._clock()
+            ticket = Ticket(recipe.name, now)
+            model = self._models.setdefault(recipe.name, _Model())
+            model.pending.append(ticket)
+            window = model.window or self._open(model, recipe, now)
+            window.last = now
+            window.figures.peak = max(window.figures.peak, model.in_flight)
+        return ticket
+
+    def forwarded(self, ticket: Ticket, recipe: Recipe) -> None:
+        """It goes to the engine now: its wait for the model ends, its wait for a slot may
+        begin."""
+        if not ticket.counted:
+            return
+        build, started = self._start_of(ticket.name)  # outside the lock: Docker, the store
+        load = self._load_of(ticket.name, started)
+        with self._lock:
+            now = self._clock()
+            model = self._models.get(ticket.name)
+            if model is None or ticket not in model.pending:
+                return
+            model.pending.remove(ticket)
+            window = self._of_start(model, recipe, build, started, load, now)
+            if (waited := now - ticket.arrived) > LOAD_GRACE:
+                ticket.load_waited = waited
+            ticket.forwarded, ticket.start = now, started
+            ahead = sum(1 for t in model.engine if t.start == started)
+            ticket.queued = ahead >= window.figures.slots
+            if not ticket.queued:
+                ticket.began = now
+            model.engine.append(ticket)
+            window.figures.peak = max(window.figures.peak, model.in_flight)
+
+    def ended(self, ticket: Ticket) -> None:
+        """However it ended: answered (`ticket.tail`), refused, or its client gone. Once only;
+        the ticket leaves first, whatever its figures say."""
+        if not ticket.counted or ticket.done:
+            return
+        try:  # outside the lock; a reader that failed would strand the ticket
+            inside = engine_figures(ticket.tail)
+        except Exception:
+            inside = Inside(None, None)
+        with self._lock:
+            now = self._clock()
+            ticket.done = True
+            model = self._models.get(ticket.name)
+            if model is None:
+                return
+            waited_for_model = ticket in model.pending
+            if waited_for_model:
+                model.pending.remove(ticket)
+            at_engine = ticket in model.engine
+            if at_engine:
+                self._left_engine(model, ticket, now)
+            window = model.window  # a ticket in flight always has one (`take`, `_close`)
+            if window is None:
+                return
+            if waited_for_model:  # refused, or its client left while it waited
+                self._load_wait(window, ticket, now - ticket.arrived)
+            elif at_engine:
+                self._answered(window, ticket, now, inside)
+            window.figures.requests += 1
+            window.figures.until = self._wall()
+            window.last = now
+
+    def waiting(self) -> dict[str, Waiting]:
+        """What waits on each instance now; only the instances where something does."""
+        found: dict[str, Waiting] = {}
+        with self._lock:
+            now = self._clock()
+            for name, model in self._models.items():
+                load = sum(1 for t in model.pending if now - t.arrived > LOAD_GRACE)
+                slot = sum(1 for t in model.engine if t.began is None)
+                if load or slot:
+                    found[name] = Waiting(load=load, slot=slot, answering=len(model.engine) - slot)
+        return found
+
+    def totals(self) -> dict[tuple[str, Reason], Tally]:
+        """(instance, reason) -> the waits since the router started (`/metrics`)."""
+        with self._lock:
+            return {key: tally.model_copy() for key, tally in self._totals.items()}
+
+    def closed(self) -> list[Closed]:
+        """The windows done, once each: those a new container start closed, each quiet one
+        (nothing in flight for `QUIET_SECONDS`), and each `WINDOW_SECONDS` old (what is in
+        flight then goes on in the next window, opened at once)."""
+        with self._lock:
+            now = self._clock()
+            for model in self._models.values():
+                window = model.window
+                if window is None:
+                    continue
+                if not model.in_flight and now - window.last >= QUIET_SECONDS:
+                    self._close(model, now)
+                elif now - window.opened >= WINDOW_SECONDS:
+                    self._close(model, now, reopen=bool(model.in_flight))
+            done, self._closed = self._closed, []
+        return done
+
+    # --- outside the lock --------------------------------------------------------------
+
+    def _start_of(self, name: str) -> tuple[str | None, str | None]:
+        try:
+            return self._container(name)
+        except Exception:  # Docker could not say: the window keeps no start
+            return None, None
+
+    def _load_of(self, name: str, started: str | None) -> Reading | None:
+        """The start's load reading, asked of the store once per start (a start mnm made
+        writes it before it answers; one with none counts under the request's recipe)."""
+        if started is None:
+            return None
+        with self._lock:
+            known = self._loads.get(name)
+        if known is not None and known[0] == started:
+            return known[1]
+        try:
+            found = self._started_with(name, started)
+        except Exception:  # unreadable readings: the recipe stands in
+            found = None
+        with self._lock:
+            self._loads[name] = (started, found)
+        return found
+
+    # --- under the lock ----------------------------------------------------------------
+
+    def _open(self, model: _Model, recipe: Recipe, now: float) -> _Window:
+        wall = self._wall()
+        figures = QueueFigures(since=wall, until=wall, slots=at_once(recipe.args))
+        model.window = _Window(recipe, now, now, figures)
+        return model.window
+
+    def _of_start(
+        self,
+        model: _Model,
+        recipe: Recipe,
+        build: str | None,
+        started: str | None,
+        load: Reading | None,
+        now: float,
+    ) -> _Window:
+        """The window this container start's requests count in: a new start closes the open
+        one (its settings may differ); its first request fixes the settings it counts under."""
+        window = model.window or self._open(model, recipe, now)
+        if window.started is not None and started is not None and window.started != started:
+            self._close(model, now)
+            window = self._open(model, recipe, now)
+        if window.started is None and started is not None:
+            window.recipe, window.started, window.build, window.load = recipe, started, build, load
+            window.figures.slots = at_once(load.args if load is not None else recipe.args)
+        return window
+
+    def _load_wait(self, window: _Window, ticket: Ticket, waited: float) -> None:
+        if waited > LOAD_GRACE:
+            window.figures.load_waits.add(waited)
+            self._totals.setdefault((ticket.name, Reason.LOAD), Tally()).add(waited)
+
+    def _left_engine(self, model: _Model, ticket: Ticket, now: float) -> None:
+        """Its place frees: the first `slots` of its start's tickets still there have a slot
+        (one that leaves before its turn moves nobody ahead of it)."""
+        model.engine.remove(ticket)
+        window = model.window
+        if window is None or window.started != ticket.start:
+            return  # a request to a container gone: its start's count is over
+        same = [t for t in model.engine if t.start == ticket.start]
+        for other in same[: window.figures.slots]:
+            if other.began is None:
+                other.began = now
+
+    def _answered(self, window: _Window, ticket: Ticket, now: float, inside: Inside) -> None:
+        """A request that reached the engine ends: counted where it ends, as every figure is
+        (one in flight at an hour's cut counts in the next window)."""
+        window.figures.forwarded += 1
+        self._load_wait(window, ticket, ticket.load_waited)
+        forwarded = ticket.forwarded if ticket.forwarded is not None else now
+        if ticket.queued:  # its client may have left before its turn: it waited till then
+            waited = max((ticket.began if ticket.began is not None else now) - forwarded, 0.0)
+            window.figures.slot_waits.add(waited)
+            self._totals.setdefault((ticket.name, Reason.SLOT), Tally()).add(waited)
+        if inside.seconds is not None:
+            window.figures.timed += 1
+            if (own := (now - forwarded) - inside.seconds) > WAIT_FLOOR:
+                window.figures.engine_waits.add(own)
+        if inside.tokens is not None:
+            window.figures.context.add(inside.tokens)
+
+    def _close(self, model: _Model, now: float, reopen: bool = False) -> None:
+        """Hand the window to the sweep when a request that reached the engine ended in it (a
+        burst of refusals says nothing of a slot, and is no use of the model); `reopen`: what
+        is in flight goes on in a window of the same start, opened now."""
+        window, model.window = model.window, None
+        if window is None:
+            return
+        if window.figures.forwarded:
+            found = Closed(window.recipe, window.build, window.started, window.load, window.figures)
+            self._closed.append(found)
+        if reopen:
+            following = self._open(model, window.recipe, now)
+            following.started, following.build = window.started, window.build
+            following.load, following.figures.slots = window.load, window.figures.slots
+            following.figures.peak = model.in_flight
+
+
+def write(service: InstanceService, closed: list[Closed]) -> int:
+    """Each closed window as a `Kind.QUEUE` reading of this box, dated by its last request's
+    end and keyed by the settings its container started with (the sweep's thread); the
+    readings written. One whose instance went (`mnm rm`) or that cannot be saved is left: a
+    reading is a hint."""
+    written = 0
+    for window in closed:
+        try:
+            if service.find(window.recipe.name) is None:
+                continue
+            reading = reading_for(
+                window.recipe,
+                Kind.QUEUE,
+                window.build,
+                stamp=stamp_for(service, window.recipe),
+                started_with=window.load,
+                container_started=window.started,
+                queue=window.figures,
+                at=window.figures.until,
+            )
+            service.measurements.add(window.recipe.name, reading)
+            written += 1
+        except Exception:  # the next window is tried all the same
+            continue
+    return written
+# ---- makenomistakes/tune/search.py ----
+"""The search: staged coordinate descent from mnm's own plan.
+
+The seed (mnm's plan, no changes) is trial 1. Each stage proposes candidates around the best
+so far, in **directions** ordered nearest first; a crash ends its direction (an out-of-memory
+start says the next step would not fit either). A stage's best replaces the best so far only
+when it gains at least `MIN_GAIN` and more than the seed's readings spread; then the next
+stage starts from it. llama.cpp's stages, in order:
+
+  a. `cpu-moe-layers` ±1, ±2 (a mixture of experts with experts in RAM)
+  b. `moe-cache` 0 / 10% / 25% of the VRAM the plan leaves (likewise)
+  c. `ubatch`/`batch` 512, 1024, 2048, 4096 (up to the context)
+  d. threads: the physical cores, cores - 2, one CCD's worth on a two-CCD CPU
+  e. the KV cache f16 / q8_0 (never a step up that the fit says will not fit; never on a
+     quality-tuned instance, whose quality tune measured its quant at its KV cache)
+  f. the draft (an MTP head or a saved draft model) on or off; `draft-max` 3 / 8 when on
+  g. `-ngl` ±1 block, only when the plan offloads dense blocks
+
+The numa stage comes before the batches on a box of several NUMA nodes when the plan keeps
+weights in RAM: `distribute`, `isolate` and `node:N` for the node with the most free memory,
+one trial each; the threads stage then counts a bound node's cores. On a hybrid Intel CPU the
+threads stage also tries the performance cores alone (`tune.cpus.CpuLayout.performance`).
+
+The search is a pure function of the trials done (`Search.next`): a tune cut by an outside
+request resumes by replaying them, never by a saved cursor. A per-card axis replaces
+stage a for a MoE placed across several cards (`card_placement`): each card's expert blocks
+±1, ±2 (`card-experts=`, the first out-of-memory start ends that card's direction; an x1
+riser holds none), the rest staying in RAM; stage b then sizes the cache for those.
+
+The backend stage comes first on an AMD card whose other llama.cpp build is pulled: one
+trial on it (ROCm beside Vulkan), every later stage from the faster."""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from enum import StrEnum
+
+from makenomistakes.engine_args import KvType, LlamaCppArgs
+from makenomistakes.hardware.probe import Gpu
+from makenomistakes.recipes.tuned import Value
+from makenomistakes.tune.cpus import CpuLayout
+from makenomistakes.tune.score import judged_spread
+from makenomistakes.tune.trial_types import Candidate, Outcome, TrialResult
+
+MAX_TRIALS = 24
+MIN_GAIN = 0.03  # a stage's best must beat the best so far by this much
+UBATCHES = (512, 1024, 2048, 4096)
+DRAFT_MAXES = (3, 8)
+DEFAULT_UBATCH = 512  # llama.cpp's own when the recipe leaves it unset
+DEFAULT_BATCH = 2048
+MIB = 2**20
+
+Direction = list[Candidate]
+
+
+class StageName(StrEnum):
+    BACKEND = "backend"  # llama.cpp's other build on an AMD card, when it is pulled
+    EXPERTS = "cpu-moe-layers"
+    CARD_EXPERTS = "card-experts"  # Expert blocks per card
+    MOE_CACHE = "moe-cache"
+    BATCH = "ubatch"
+    THREADS = "threads"
+    KV = "kv"
+    DRAFT = "draft"
+    LAYERS = "gpu-layers"
+    NUMA = "numa"  # Several NUMA nodes, weights in RAM
+
+
+@dataclass(frozen=True)
+class SearchFacts:
+    """What the stages read about the instance and the box, gathered once per tune."""
+
+    args: LlamaCppArgs  # the plan's (the seed's)
+    blocks: int | None = None  # the model's blocks, from its header
+    moe: bool = False  # a mixture of experts (the header's expert count)
+    vram_left_bytes: int | None = None  # the card less what the plan puts on it
+    cpus: CpuLayout = field(default_factory=CpuLayout)
+    draft: bool = False  # the plan drafts (a draft model or the MTP head)
+    mtp: bool = False  # the repo's MTP head is downloaded (`Recipe.mtp`)
+    fits: Callable[[Candidate], bool] = lambda _c: True  # the fit model's word on a candidate
+    # The instance's backend and the others its card runs whose image is pulled here
+    # (an AMD card with both llama.cpp builds): the backend stage tries each, one trial
+    backend: str | None = None
+    backends: tuple[str, ...] = ()
+    # The box's NUMA nodes (index, physical cores) and the node `auto` would bind to
+    # (the most free memory): the numa stage tries distribute, isolate and that node, and the
+    # threads stage counts a bound node's cores
+    nodes: tuple[tuple[int, int], ...] = ()
+    roomiest: int | None = None
+    in_ram: bool = False  # the plan keeps weights in RAM (experts, blocks, or the CPU backend)
+    # A quality tune chose the quant at this KV cache: only it moves the cache
+    kv_held: bool = False
+
+
+@dataclass(frozen=True)
+class Budget:
+    trials: int = MAX_TRIALS
+    seconds: float = 45 * 60.0
+
+
+@dataclass(frozen=True)
+class Next:
+    candidate: Candidate
+
+
+@dataclass(frozen=True)
+class Finished:
+    best: TrialResult | None  # None: the plan itself could not be measured
+    reason: str
+    seed: TrialResult | None = None
+
+
+Step = Next | Finished
+
+
+def axes_for(facts: SearchFacts, cards: list[Gpu]) -> list[StageName]:
+    """The stages this instance is searched over, in order. One card: llama.cpp's own axes;
+    several cards with a MoE placed across them: its expert blocks per card instead
+    of `cpu-moe-layers`."""
+    stages: list[StageName] = [StageName.BACKEND] if facts.backends else []
+    placement = facts.args.placement
+    if len(cards) > 1 and placement is not None and placement.in_ram:
+        stages += [StageName.CARD_EXPERTS, StageName.MOE_CACHE]
+    elif facts.moe and (facts.args.cpu_moe_layers or 0) > 0:
+        stages += [StageName.EXPERTS, StageName.MOE_CACHE]
+    if len(facts.nodes) > 1 and facts.in_ram:  # Before the threads it decides
+        stages.append(StageName.NUMA)
+    stages += [StageName.BATCH, StageName.THREADS]
+    stages += [StageName.DRAFT] if facts.kv_held else [StageName.KV, StageName.DRAFT]
+    if _dense_offload(facts):
+        stages.append(StageName.LAYERS)
+    return stages
+
+
+def _dense_offload(facts: SearchFacts) -> bool:
+    blocks = facts.blocks
+    experts_in_ram = facts.moe and (facts.args.cpu_moe_layers or 0) > 0
+    return blocks is not None and not experts_in_ram and facts.args.gpu_layers <= blocks
+
+
+def _value(best: Candidate, facts: SearchFacts, name: str) -> Value:
+    if name in best.changes:
+        return best.changes[name]
+    return _planned(facts, name)
+
+
+def _planned(facts: SearchFacts, name: str) -> Value:
+    if name == StageName.BACKEND.value:  # the image's, not an engine arg
+        return facts.backend
+    planned = getattr(facts.args, name)
+    return planned.value if isinstance(planned, KvType) else planned
+
+
+def directions(stage: StageName, best: Candidate, facts: SearchFacts) -> list[Direction]:
+    """The stage's candidates around `best`, as directions nearest first."""
+    return _STAGES[stage](best, facts)
+
+
+def _one(best: Candidate, facts: SearchFacts, name: str, value: Value, stage: str) -> Candidate:
+    return best.changed(name, value, _planned(facts, name), stage)
+
+
+def _backends(best: Candidate, facts: SearchFacts) -> list[Direction]:
+    """One trial on each other build (ROCm beside Vulkan: chosen per reading)."""
+    now = _value(best, facts, StageName.BACKEND.value)
+    stage = StageName.BACKEND.value
+    return [[_one(best, facts, stage, b, stage)] for b in facts.backends if b != now]
+
+
+def _experts(best: Candidate, facts: SearchFacts) -> list[Direction]:
+    now = int(_value(best, facts, "cpu_moe_layers") or 0)
+    top = facts.blocks or now + 2
+    stage = StageName.EXPERTS.value
+    fewer = [_one(best, facts, "cpu_moe_layers", now - d, stage) for d in (1, 2) if now - d >= 1]
+    more = [_one(best, facts, "cpu_moe_layers", now + d, stage) for d in (1, 2) if now + d <= top]
+    return [d for d in (fewer, more) if d]
+
+
+def _card_experts(best: Candidate, facts: SearchFacts) -> list[Direction]:
+    """Each card's expert blocks one and two more, then one and two fewer, nearest first;
+    the blocks come from or go back to RAM (`fit.placement.refill`)."""
+    placement = facts.args.placement
+    if placement is None:
+        return []
+    planned = ",".join(str(n) for n in placement.counts)
+    now = [int(n) for n in str(best.changes.get("placement", planned)).split(",")]
+    most = sum(placement.counts) + len(placement.in_ram)
+    stage = StageName.CARD_EXPERTS.value
+    found: list[Direction] = []
+    for k, card in enumerate(placement.cards):
+        if card.lanes is not None and card.lanes <= 1:
+            continue  # an x1 riser holds layers only
+        for sign in (1, -1):
+            direction = []
+            for step in (1, 2):
+                counts = list(now)
+                counts[k] += sign * step
+                if counts[k] < 0 or sum(counts) > most:
+                    break
+                shown = ",".join(str(n) for n in counts)
+                direction.append(best.changed("placement", shown, planned, stage))
+            if direction:
+                found.append(direction)
+    return found
+
+
+def _moe_cache(best: Candidate, facts: SearchFacts) -> list[Direction]:
+    left = facts.vram_left_bytes
+    if not left or left <= 0:
+        return []
+    now = _value(best, facts, "moe_cache_mib") or 0
+    stage = StageName.MOE_CACHE.value
+    sizes = [int(left * share / MIB) for share in (0.10, 0.25)]
+    grow = [_one(best, facts, "moe_cache_mib", s, stage) for s in sizes if s > 0 and s != now]
+    off = [_one(best, facts, "moe_cache_mib", 0, stage)] if now else []
+    return [d for d in (grow, off) if d]
+
+
+def _batches(best: Candidate, facts: SearchFacts) -> list[Direction]:
+    now = int(_value(best, facts, "ubatch") or DEFAULT_UBATCH)
+    batch = int(_value(best, facts, "batch") or DEFAULT_BATCH)
+    limit = facts.args.ctx
+    stage = StageName.BATCH.value
+
+    def with_ubatch(size: int) -> Candidate:
+        moved = _one(best, facts, "ubatch", size, stage)  # the batch only when it must grow
+        return _one(moved, facts, "batch", size, stage) if size > batch else moved
+
+    up = [with_ubatch(u) for u in UBATCHES if now < u <= limit]
+    down = [with_ubatch(u) for u in reversed(UBATCHES) if u < now]
+    return [d for d in (up, down) if d]
+
+
+def _numa(best: Candidate, facts: SearchFacts) -> list[Direction]:
+    """One trial each: llama.cpp's two spreads, and the node `auto` would bind to (a node
+    too small for the model is refused before a start, never tried)."""
+    now = _value(best, facts, "numa")
+    stage = StageName.NUMA.value
+    options = ["distribute", "isolate"]
+    if facts.roomiest is not None:
+        options.append(f"node:{facts.roomiest}")
+    return [[_one(best, facts, "numa", o, stage)] for o in options if o != now]
+
+
+def _threads(best: Candidate, facts: SearchFacts) -> list[Direction]:
+    now = _value(best, facts, "threads")
+    stage = StageName.THREADS.value
+    cpus = facts.cpus
+    bound = str(_value(best, facts, "numa") or "")
+    if bound.startswith("node:"):  # The bound node's cores, its CCDs shared out
+        cores = dict(facts.nodes).get(int(bound.removeprefix("node:")), 0)
+        groups = max(cpus.groups // max(len(facts.nodes), 1), 1)
+        cpus = CpuLayout(cores, groups, cpus.performance)
+    return [[_one(best, facts, "threads", n, stage)] for n in cpus.choices() if n != now]
+
+
+def _kv(best: Candidate, facts: SearchFacts) -> list[Direction]:
+    now = _value(best, facts, "kv_type")
+    stage = StageName.KV.value
+    options = [KvType.F16.value, KvType.Q8_0.value]
+    if facts.args.flash_attn == "off":  # a quantised V cache needs flash attention
+        options = [KvType.F16.value]
+    found = []
+    for kind in options:
+        if kind == now:
+            continue
+        candidate = _one(best, facts, "kv_type", kind, stage)
+        if kind == KvType.F16.value and not facts.fits(candidate):
+            continue  # a step up in memory the fit says will not fit
+        found.append([candidate])
+    return found
+
+
+def _drafts(best: Candidate, facts: SearchFacts) -> list[Direction]:
+    stage = StageName.DRAFT.value
+    on = (facts.draft and best.draft != "off") or best.draft == "mtp"
+    if not on and not facts.mtp:
+        return []
+    if not on:  # no draft planned, an MTP head downloaded: try it, then its draft-max
+        tried = best.drafting("mtp", stage)
+        now = _value(best, facts, "draft_max")
+        maxes = [_one(tried, facts, "draft_max", m, stage) for m in DRAFT_MAXES if m != now]
+        return [[tried, *maxes]]
+    now = _value(best, facts, "draft_max")
+    found: list[Direction] = [[best.drafting("off" if facts.draft else None, stage)]]
+    found += [[_one(best, facts, "draft_max", m, stage)] for m in DRAFT_MAXES if m != now]
+    return found
+
+
+def _layers(best: Candidate, facts: SearchFacts) -> list[Direction]:
+    now = int(_value(best, facts, "gpu_layers") or 1)
+    stage = StageName.LAYERS.value
+    found = [[_one(best, facts, "gpu_layers", now + 1, stage)]]
+    if now > 1:
+        found.append([_one(best, facts, "gpu_layers", now - 1, stage)])
+    return found
+
+
+_STAGES: dict[StageName, Callable[[Candidate, SearchFacts], list[Direction]]] = {
+    StageName.BACKEND: _backends,
+    StageName.EXPERTS: _experts,
+    StageName.CARD_EXPERTS: _card_experts,
+    StageName.MOE_CACHE: _moe_cache,
+    StageName.BATCH: _batches,
+    StageName.THREADS: _threads,
+    StageName.KV: _kv,
+    StageName.DRAFT: _drafts,
+    StageName.LAYERS: _layers,
+    StageName.NUMA: _numa,
+}
+
+
+@dataclass
+class Search:
+    """The next trial, given the trials done in this tune."""
+
+    facts: SearchFacts
+    stages: list[StageName]
+    budget: Budget = field(default_factory=Budget)
+
+    def next(self, done: list[TrialResult]) -> Step:
+        counted = [r for r in done if r.counted]
+        spent = sum(r.seconds for r in done if r.counted)  # a cut or held trial costs none
+        by_key: dict[str, list[TrialResult]] = {}
+        for each in counted:
+            by_key.setdefault(each.candidate.key, []).append(each)
+        out_of_budget = len(counted) >= self.budget.trials or spent >= self.budget.seconds
+        seed = Candidate()
+        settled = _settled(by_key, seed)
+        if settled is None:
+            return (
+                Finished(None, "out of budget before mnm's plan was measured")
+                if (out_of_budget)
+                else Next(seed)
+            )
+        if settled.outcome is not Outcome.MEASURED or settled.score is None:
+            return Finished(None, f"mnm's plan itself was not measured: {settled.why}", settled)
+        best: TrialResult = settled
+        noise = judged_spread(settled.decode)
+        for stage in self.stages:
+            stage_best = best
+            for direction in directions(stage, best.candidate, self.facts):
+                for candidate in direction:
+                    result = _settled(by_key, candidate)
+                    if result is None:
+                        if out_of_budget:
+                            chosen = _adopted(stage_best, best, noise)
+                            return Finished(
+                                chosen, _budget_word(counted, spent, self.budget), settled
+                            )
+                        return Next(candidate)
+                    if result.outcome is Outcome.CRASHED:
+                        break  # the next step this way would not start either
+                    if _better(result, stage_best):
+                        stage_best = result
+            best = _adopted(stage_best, best, noise)
+        return Finished(best, "every stage searched", settled)
+
+
+def _settled(by_key: dict[str, list[TrialResult]], candidate: Candidate) -> TrialResult | None:
+    """The candidate's result, or None when it still needs a trial: never run, or once not
+    alone (repeated once; twice not alone, it stands as unmeasured)."""
+    results = by_key.get(candidate.key, [])
+    if not results:
+        return None
+    last = results[-1]
+    if last.outcome is Outcome.NOISY and len(results) < 2:
+        return None
+    return last
+
+
+def _better(result: TrialResult, than: TrialResult) -> bool:
+    if result.outcome is not Outcome.MEASURED or result.score is None or than.score is None:
+        return False
+    return result.score.value > than.score.value
+
+
+def _adopted(stage_best: TrialResult, best: TrialResult, noise: float) -> TrialResult:
+    """The stage's best when it gains enough over the best so far, else the best so far."""
+    if stage_best is best or stage_best.score is None or best.score is None:
+        return best
+    if best.score.value <= 0:
+        return stage_best
+    gain = stage_best.score.value / best.score.value - 1
+    return stage_best if gain >= max(MIN_GAIN, noise) else best
+
+
+def _budget_word(counted: list[TrialResult], spent: float, budget: Budget) -> str:
+    if len(counted) >= budget.trials:
+        return f"the budget of {budget.trials} trials is spent"
+    return f"the budget of {budget.seconds / 60:.0f} minutes is spent ({spent / 60:.0f} used)"
+# ---- makenomistakes/plan_types.py ----
+"""What a plan is: the facts, budget and profiles a reference resolved to, and the errors.
+
+`plan.py` builds one (`make_plan`); the CLI and the web UI choose a profile and turn it into
+a recipe through it. It is a module of its own so the image planners (`plan_images.py`) can
+build plans without importing the orchestration that calls them.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import NoReturn
+
+from makenomistakes.busy_card import refusal_note
+from makenomistakes.engine_args import MIN_CTX
+from makenomistakes.engine_args_vllm import VLLM_MIN_CTX
+from makenomistakes.fit import Budget, FitLevel, KvType, Profile, ProfileName, plan_custom
+from makenomistakes.fit.audio import plan_audio_custom
+from makenomistakes.fit.budget import pool_load
+from makenomistakes.fit.image import dit_precisions, plan_dit_custom, plan_image_custom
+from makenomistakes.fit.image_memory import kit_sizes
+from makenomistakes.fit.music import plan_music_custom
+from makenomistakes.fit.plan_floor import RamFloorError
+from makenomistakes.fit.profiles import plannable
+from makenomistakes.fit.quant_ladder import below
+from makenomistakes.fit.vllm import plan_vllm_custom
+from makenomistakes.fit.voice import plan_voice_custom
+from makenomistakes.gguf import GgufHeader
+from makenomistakes.guide import Guidance
+from makenomistakes.hub import ModelFacts
+from makenomistakes.hub.facts import Engine, Modality
+from makenomistakes.hub.hf_config import HfConfig
+from makenomistakes.hub.image_files import ImageWeights
+from makenomistakes.hub.kits import UPSCALER_PATH, UPSCALER_REPO, ImageKit
+from makenomistakes.prompt_cache import planned as planned_cache
+from makenomistakes.recipes import (
+    Recipe,
+    UpscalerFile,
+    audiocpp_recipe,
+    llamacpp_recipe,
+    sdcpp_recipe,
+    spec,
+    whispercpp_recipe,
+)
+from makenomistakes.recipes.sdcpp import GGUF_KIT_LOAD, CheckpointLoad
+from makenomistakes.recipes.vllm import vllm_recipe
+from makenomistakes.safetensors.sd import AnyParts, DitParts
+
+CustomPlanner = Callable[[ModelFacts, Budget, str], Profile]
+
+ONE_SET = (
+    "{repo} holds one set of weights ({quant}); for another quant, paste the repo that holds "
+    "it (an AWQ or FP8 build of the same model)."
+)
+
+
+class PlanError(RuntimeError):
+    """A user-facing reason the plan could not be made, with guidance when the Hub can help."""
+
+    def __init__(self, message: str, guidance: Guidance | None = None) -> None:
+        super().__init__(message)
+        self.guidance = guidance
+
+
+class NoRoomError(PlanError):
+    """The model does not fit this machine at any quant it was planned at: the box's size,
+    never a refusal of the model (a RAM floor, an image kit's VRAM floor, vLLM's weights over
+    the cards). `mnm what` reads it as *does not fit*."""
+
+
+class SourceReadError(PlanError):
+    """The source or the model's file could not be read (a source that did not answer or
+    refused access, an unreadable header): nothing is known of whether it would run.
+    `mnm what` reads it as *cannot read*."""
+
+
+class NoSuchQuantError(PlanError):
+    """The quant asked for is not among the repo's (such as a saved instance's quant the repo
+    no longer lists, which `mnm why` answers with `mnm replan <name> --any-quant`)."""
+
+
+class TypeRefusedError(PlanError):
+    """The model is of a type it cannot be added as (`--type`): `modality` is its own.
+    `mnm what --type coder` leaves such a hit out as another type rather than refusing it."""
+
+    def __init__(self, message: str, modality: Modality) -> None:
+        super().__init__(message)
+        self.modality = modality
+
+
+@dataclass(frozen=True)
+class CheckpointChoice:
+    """The checkpoint version or diffusers folder a plan runs, and what its header holds."""
+
+    weights: ImageWeights
+    parts: AnyParts
+
+
+def base_profile(name: ProfileName) -> ProfileName:
+    """The named profile a plan sizes `name` from: a custom profile (an instance added with
+    `--quant`, `--ctx` or `--for-agents`) starts from balanced, overriding what it set."""
+    return name if name is not ProfileName.CUSTOM else ProfileName.BALANCED
+
+
+@dataclass(frozen=True)
+class Plan:
+    facts: ModelFacts
+    header: GgufHeader | None  # None for image and speech-to-text models: no header read
+    budget: Budget
+    profiles: dict[ProfileName, Profile]
+    kit: ImageKit | None = None
+    kit_sizes: dict[str, int] = field(default_factory=dict)  # companion key -> bytes
+    checkpoint: CheckpointChoice | None = None  # safetensors image weights: what runs
+    tag_quant: str | None = None  # `hf.co/org/repo:Q8_0`: the quant unless one is passed
+    upscaler_bytes: int = 0  # the ESRGAN upscaler's size, read with the kit's companions
+    hf_config: HfConfig | None = None  # vLLM plans: the model's config.json
+
+    @property
+    def speed_note(self) -> str | None:
+        """What this card measured of the family's picture time, for the plan."""
+        if self.kit is None:
+            return None
+        return self.budget.speed_notes.get(self.kit.family)
+
+    def upscaler_file(self) -> UpscalerFile:
+        return UpscalerFile(
+            repo_id=UPSCALER_REPO, path=UPSCALER_PATH, size_bytes=self.upscaler_bytes
+        )
+
+    @property
+    def image_summary(self) -> str:
+        """`SDXL checkpoint waiIllustriousSDXL_v170.safetensors (F16: UNet 4.8 GiB, text
+        encoders 1.5 GiB); kit: …`, one line for `mnm fit` and the add page."""
+        if self.kit is None:
+            return ""
+        kit = ", ".join(c.summary for c in self.kit.companions)
+        if self.checkpoint is None:
+            kind = "video" if self.kit.is_video else "image"
+            return f"{self.kit.label} {kind} model" + (f"; kit: {kit}" if kit else "")
+        weights, parts = self.checkpoint.weights, self.checkpoint.parts
+        line = parts.describe(weights.files[0].rsplit("/", 1)[-1], weights.layout)
+        return line + (f"; kit: {kit}" if kit else "")
+
+    @property
+    def quant_choices(self) -> list[tuple[str, int | None]]:
+        """What `--quant` may name, with the download size when there is one: a GGUF repo's
+        variants, or a DiT file's precisions (as stored, or Q8_0 while loading), whether or
+        not the profiles chose them (`choose` prices the one asked for)."""
+        parts = self.checkpoint.parts if self.checkpoint is not None else None
+        if self.checkpoint is not None and isinstance(parts, DitParts):
+            precisions = dit_precisions(self.checkpoint.weights, parts)
+            return [(q, None) for q in precisions]
+        return [(v.quant, v.size_bytes) for v in self.facts.gguf_variants]
+
+    def smaller_quants(self, name: ProfileName = ProfileName.BALANCED) -> list[str]:
+        """The quants below a profile's that this plan runs, the most faithful first
+        (`quant_ladder.below` over the variants the planner itself plans: known bits, an
+        Engram table that loads); where `mnm what` steps a coder down when its agent context
+        does not fit at the profile's quant."""
+        variants = [v for v in self.facts.gguf_variants if plannable(v)]
+        return [v.quant for v in below(variants, self.profiles[name].variant)]
+
+    def check_quant(self, quant: str) -> None:
+        """PlanError unless this plan can run `quant`: the one check a tag (`mnm fit`), the
+        flag (`mnm add`) and the web share, so they never disagree."""
+        wanted = quant.upper()
+        if self.facts.engine is Engine.VLLM:  # one build: another tag is refused, never ignored
+            held = next(iter(self.profiles.values())).quant
+            if wanted != held.upper():
+                raise PlanError(ONE_SET.format(repo=self.facts.repo_id, quant=held))
+            return
+        if self.checkpoint is not None and not isinstance(self.checkpoint.parts, DitParts):
+            if wanted not in {p.quant.upper() for p in self.profiles.values()}:
+                raise PlanError(
+                    f"{quant}: a checkpoint runs at F16 and has no quants to pick; to plan "
+                    "another version, pass `--version` (or paste that file's link)."
+                )
+            return
+        choices = [q for q, _ in self.quant_choices]
+        if wanted in {c.upper() for c in choices}:
+            return
+        if self.checkpoint is not None:
+            raise PlanError(
+                f"{quant} is not a choice for this file (choices: {', '.join(choices)}: as "
+                "stored, or quantized while loading)."
+            )
+        available = ", ".join(choices) or "none"
+        raise NoSuchQuantError(
+            f"{self.facts.repo_id} has no '{quant}' variant (available: {available})."
+        )
+
+    @property
+    def other_versions(self) -> list[str]:
+        """The repo's other versions (checkpoint files, diffusers folders, GGUF models): pass
+        one to `--version` to plan it."""
+        return [label for label in self.facts.versions if label != self.facts.version]
+
+    def choose(
+        self,
+        name: ProfileName,
+        quant: str | None = None,
+        ctx: int | None = None,
+        kv: KvType | None = None,
+    ) -> Profile:
+        """A named profile, or a custom one when quant or context are overridden. Never NO_FIT."""
+        quant = quant or self.tag_quant
+        base = self.profiles[base_profile(name)]
+        engine = self.facts.engine
+        if engine is Engine.VLLM:
+            return self._choose_vllm(base, quant, ctx, kv)
+        if engine is not None and (row := spec(engine)).knobs is not None:
+            if ctx is not None or kv is not None:
+                raise PlanError(
+                    f"Context and KV cache do not apply to {row.label} models; {row.knobs}."
+                )
+            if engine is Engine.SDCPP:
+                return self._choose_image(base, quant)
+            if engine is Engine.AUDIOCPP:
+                music = self.facts.music_family is not None
+                return self._choose_audio(
+                    base, quant, plan_music_custom if music else plan_voice_custom
+                )
+            return self._choose_audio(base, quant, plan_audio_custom)
+        if ctx is not None:
+            self._check_ctx(ctx)
+        chosen = base
+        if self.header is not None and (quant is not None or ctx is not None or kv is not None):
+            try:
+                chosen = plan_custom(
+                    self.facts,
+                    self.header,
+                    self.budget,
+                    quant or base.quant,
+                    ctx or base.ctx,
+                    kv or base.kv_type,
+                    floor=True,
+                )
+            except RamFloorError as exc:
+                raise NoRoomError(str(exc)) from exc
+            except ValueError as exc:
+                raise PlanError(str(exc)) from exc
+        if chosen.fit.level is FitLevel.NO_FIT:
+            self._refuse(
+                f"{chosen.quant} at {chosen.ctx:,} context needs "
+                f"{chosen.estimate.total_bytes / 2**30:.1f} GiB and does not fit this machine "
+                "even with offloading.",
+                "Pick a smaller quant or context",
+            )
+        return chosen
+
+    def _refuse(self, needs: str, smaller: str) -> NoReturn:
+        """A pick that does not fit, with what to do: a lighter pick only when one of the
+        profiles fits, and VRAM held elsewhere when that is why (with another program holding
+        8 GiB, every quant of wan5b would be refused with "pick a smaller quant")."""
+        fits = any(p.fit.level is not FitLevel.NO_FIT for p in self.profiles.values())
+        busy = refusal_note(self.budget)
+        if fits:
+            hint = f"{smaller} ({busy})" if busy else smaller
+        elif busy:
+            hint = f"None of its profiles fits right now: {busy}"
+        else:
+            box = "this box's RAM" if self.budget.no_card else "this card"
+            hint = f"None of its profiles fits {box}; pick a smaller model"
+        raise NoRoomError(f"{needs} {hint}.")
+
+    def _choose_vllm(
+        self, base: Profile, quant: str | None, ctx: int | None, kv: KvType | None
+    ) -> Profile:
+        """A vLLM repo is one set of weights: the quant is the repo's, the context and the KV
+        precision are planned (any quantised KV type means FP8 on vLLM)."""
+        if quant is not None and quant.upper() != base.quant.upper():
+            raise PlanError(ONE_SET.format(repo=self.facts.repo_id, quant=base.quant))
+        chosen = base
+        if (ctx is not None or kv is not None) and self.hf_config is not None:
+            native = self.hf_config.text.max_position_embeddings
+            if ctx is not None and (ctx < VLLM_MIN_CTX or (native and ctx > native)):
+                raise PlanError(
+                    f"Context {ctx:,} is outside {VLLM_MIN_CTX:,} to {native or 0:,} tokens."
+                )
+            base_args = base.vllm
+            kv_name = (
+                ("auto" if kv is KvType.F16 else "fp8")
+                if kv is not None
+                else (base_args.kv_cache_dtype if base_args else "auto")
+            )
+            chosen = plan_vllm_custom(
+                self.facts,
+                self.hf_config,
+                self.budget,
+                ctx or base.ctx,
+                kv_name,
+                base_args.tensor_parallel if base_args else None,
+            )
+        if chosen.fit.level is FitLevel.NO_FIT:
+            self._refuse(
+                f"{chosen.quant} at {chosen.ctx:,} context needs "
+                f"{chosen.fit.gpu_bytes / 2**30:.1f} GiB of the card and only "
+                f"{self.budget.card_free_bytes / 2**30:.1f} GiB is free.",  # the table's
+                "Pick a smaller context, `--kv q8_0` (FP8), or an AWQ build of the model",
+            )
+        return chosen
+
+    def _check_ctx(self, ctx: int) -> None:
+        """An explicit context must be one the engine args accept and the model was trained
+        for; said as a PlanError, never as pydantic's ValidationError from inside `recipe`."""
+        if ctx < MIN_CTX:
+            raise PlanError(f"Context {ctx:,} is below the minimum of {MIN_CTX:,} tokens.")
+        native = self.header.context_length if self.header is not None else None
+        if native and ctx > native:
+            raise PlanError(
+                f"Context {ctx:,} is above the {native:,} tokens this model was trained for."
+            )
+
+    def recipe(self, profile: Profile, name: str, port: int, upscaler: bool = False) -> Recipe:
+        """The recipe for a chosen profile: the plan owns the engine decision. `upscaler`
+        gives a picture instance the ESRGAN upscaler (never a video one: clips are not
+        upscaled); its size is what the plan read from the Hub (`upscaler_bytes`). Its image
+        is the engine's for the box's backend, when the budget read the box."""
+        built = self._recipe(profile, name, port, upscaler)
+        image = self.image
+        return built if image is None else built.model_copy(update={"image": image})
+
+    @property
+    def image(self) -> str | None:
+        """The engine's tag for this box's backend and arch; None for a budget that did not
+        read the box (`--vram`): the recipe keeps the image every box ran before.
+        A box the engine has no image for is refused while planning (`plan.make_plan`)."""
+        budget = self.budget
+        if budget.backend is None or self.facts.engine is None:
+            return None
+        found = spec(self.facts.engine).image_for(budget.backend, budget.arch or "x86_64")
+        return found if isinstance(found, str) else None
+
+    def _recipe(self, profile: Profile, name: str, port: int, upscaler: bool) -> Recipe:
+        match self.facts.engine:
+            case Engine.SDCPP if self.kit is not None:
+                return sdcpp_recipe(
+                    self.facts,
+                    self.kit,
+                    self.kit_sizes,
+                    profile,
+                    name,
+                    port,
+                    CheckpointLoad(
+                        layout=self.checkpoint.weights.layout,
+                        weight_type=self.checkpoint.parts.load_type,
+                    )
+                    if self.checkpoint is not None
+                    else GGUF_KIT_LOAD,
+                    self.upscaler_file() if upscaler and not self.kit.is_video else None,
+                )
+            case Engine.WHISPERCPP:
+                return whispercpp_recipe(self.facts, profile, name, port)
+            case Engine.AUDIOCPP:
+                return audiocpp_recipe(self.facts, profile, name, port, cpu=self.budget.cpu)
+            case Engine.LLAMACPP:
+                return llamacpp_recipe(
+                    self.facts,
+                    profile,
+                    name,
+                    port,
+                    cpu=self.budget.cpu,
+                    load_mode=pool_load(self.budget),
+                    cache=planned_cache(self.budget, profile, self.facts.modality),
+                )
+            case Engine.VLLM:
+                return vllm_recipe(self.facts, profile, name, port)
+        raise PlanError(f"{self.facts.repo_id}: no recipe for this plan.")
+
+    def _dit_quant(self, kit: ImageKit, checkpoint: CheckpointChoice, quant: str) -> Profile:
+        """A DiT file at the precision asked for: as stored or converted while loading."""
+        parts = checkpoint.parts
+        if not isinstance(parts, DitParts):  # `check_quant` let no other quant through
+            raise PlanError(f"{quant}: a checkpoint runs at F16 and has no quants to pick.")
+        try:
+            return plan_dit_custom(
+                self.facts,
+                kit,
+                checkpoint.weights,
+                parts,
+                self.kit_sizes,
+                self.budget,
+                quant,
+            )
+        except ValueError as exc:
+            raise PlanError(str(exc)) from exc
+
+    def _choose_audio(self, base: Profile, size: str | None, custom: CustomPlanner) -> Profile:
+        """A whisper size or a voice package's quant: one label picks one file."""
+        chosen = base
+        if size is not None and size.lower() != base.quant.lower():
+            try:
+                chosen = custom(self.facts, self.budget, size)
+            except ValueError as exc:
+                raise PlanError(str(exc)) from exc
+        if chosen.fit.level is FitLevel.NO_FIT:
+            # a box without a card plans in RAM: "free VRAM" would name what it lacks
+            where = "of RAM for models" if self.budget.no_card else "of free VRAM"
+            self._refuse(
+                f"{chosen.quant} needs {chosen.estimate.total_bytes / 2**30:.1f} GiB and does "
+                f"not fit the {self.budget.card_free_bytes / 2**30:.1f} GiB {where}.",
+                "Pick a smaller size or stop an instance",
+            )
+        return chosen
+
+    def _choose_image(self, base: Profile, quant: str | None) -> Profile:
+        if self.kit is None:
+            raise PlanError(f"{self.facts.repo_id} is not an image plan.")
+        chosen = base
+        if quant is not None and self.checkpoint is not None:
+            self.check_quant(quant)
+            if quant.upper() != base.quant.upper():  # a DiT file: as stored, or Q8_0
+                chosen = self._dit_quant(self.kit, self.checkpoint, quant)
+        if quant is not None and quant.upper() != base.quant.upper() and self.checkpoint is None:
+            try:
+                chosen = plan_image_custom(
+                    self.facts,
+                    self.kit,
+                    kit_sizes(self.kit.companions, self.kit_sizes),
+                    self.budget,
+                    quant,
+                )
+            except ValueError as exc:
+                raise PlanError(str(exc)) from exc
+        if chosen.fit.level is FitLevel.NO_FIT:
+            smaller = (
+                "Stop another instance, or pick a smaller model"
+                if self.checkpoint is not None
+                else "Pick a smaller quant"
+            )
+            self._refuse(
+                f"{chosen.quant} needs {chosen.estimate.total_bytes / 2**30:.1f} GiB with its "
+                "text encoder and VAE and does not fit this machine, even streaming weights "
+                "from RAM.",
+                smaller,
+            )
+        return chosen
+# ---- makenomistakes/fit/profiles.py ----
+"""Turn model facts + hardware into three named, explained profiles.
+
+Quality: the highest-quality quant that still fits with a useful context, f16 KV cache.
+Balanced: a 4-bit quant with as much context as fits, KV cache at 8-bit.
+Speed: the lightest 4-bit quant at 8k context with an f16 KV cache: the least work per
+token, fully on the GPU.
+
+Embedding and rerank models ignore the ladder: they get their native context (capped at 8k)
+and an f16 cache, and the engine's batch sizes are set to the context so one long input is
+processed in a single step (non-causal models cannot split a prompt across micro-batches).
+
+Everywhere, a comfortable fit beats a tight one, and a tight one beats offloading:
+the numbers are estimates, so headroom is worth more than the last few k of context.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from enum import StrEnum
+
+from pydantic import BaseModel, ConfigDict
+
+from makenomistakes.card_placement import Placement
+from makenomistakes.engine_args import (
+    MIN_CTX,
+    AudioCppArgs,
+    KvType,
+    LlamaCppArgs,
+    SdCppArgs,
+)
+from makenomistakes.engine_args_vllm import VllmArgs
+from makenomistakes.engine_args_whisper import WhisperArgs
+from makenomistakes.fit.budget import Budget
+from makenomistakes.fit.cards import main_gpu, tensor_split
+from makenomistakes.fit.estimate import (
+    DEFAULT_UBATCH,
+    GIB,
+    Fit,
+    FitLevel,
+    MemoryEstimate,
+    estimate_memory,
+    estimate_tokens_per_second,
+    every_expert_in_ram,
+    fit_estimate,
+    per_card,
+)
+from makenomistakes.fit.placement import Mode, Placed, place_experts
+from makenomistakes.fit.plan_floor import check_floor, check_pick, floor_at, holds
+from makenomistakes.fit.quant_ladder import (
+    BALANCED_PREFERENCE,
+    SPEED_PREFERENCE,
+    below,
+    preferred,
+    quant_bits,
+)
+from makenomistakes.fit.ram_floor import Floor
+from makenomistakes.gguf.reader import GgufHeader
+from makenomistakes.hub.facts import EMBEDDING_MODALITIES, ModelFacts
+from makenomistakes.hub.variants import GgufVariant
+
+CTX_LADDER = (131072, 65536, 32768, 16384, 8192, 4096)
+MIN_USEFUL_CTX = 8192
+SPEED_CTX = 8192
+QUALITY_MAX_CTX = 65536
+_PREFERENCE = (FitLevel.COMFORTABLE, FitLevel.TIGHT, FitLevel.OFFLOAD)
+
+
+class ProfileName(StrEnum):
+    QUALITY = "quality"
+    BALANCED = "balanced"
+    SPEED = "speed"
+    CUSTOM = "custom"
+
+
+# Longest input per embedding/rerank profile. The whole input is one micro-batch, and a
+# decoder model computes logits for every token of it (`compute_buffer_bytes`): 8192 tokens
+# of Qwen3-Embedding is a 4.6 GiB buffer, 2048 tokens 1.2 GiB. Odysseus cuts each input at
+# 900 characters and RAG chunks are a few hundred tokens, so balanced covers them all.
+EMBEDDING_CTX = {ProfileName.QUALITY: 8192, ProfileName.BALANCED: 2048, ProfileName.SPEED: 1024}
+
+
+class Profile(BaseModel):
+    model_config = ConfigDict(extra="forbid")  # a renamed field fails loudly, never vanishes
+
+    name: ProfileName
+    variant: GgufVariant
+    ctx: int = 0  # llama.cpp profiles
+    kv_type: KvType = KvType.F16
+    ubatch: int | None = None  # set for embedding/rerank: the whole input in one step
+    # Embedding and rerank read each input in one batched pass (ubatch = ctx) and decode
+    # nothing, so a decode t/s says nothing about them.
+    whole_input: bool = False
+    # sd.cpp and whisper.cpp profiles: exactly what the recipe will run (llama.cpp's are
+    # built from ctx, kv_type and ubatch above).
+    engine_args: SdCppArgs | WhisperArgs | AudioCppArgs | VllmArgs | None = None
+    seconds_per_image: float = 0.0  # rough, compute-bound, uncalibrated
+    kit_bytes: int = 0  # every companion file an image kit downloads
+    # llama.cpp across several cards: `-ts` and `-mg` from the budget's cards
+    tensor_split: tuple[int, ...] | None = None
+    main_gpu: int | None = None
+    # A MoE that does not fit whole on several cards, its blocks and experts per card
+    placement: Placement | None = None
+    estimate: MemoryEstimate
+    fit: Fit
+    tokens_per_second: float = 0.0
+    why: str
+
+    @property
+    def quant(self) -> str:
+        return self.variant.quant
+
+    @property
+    def download_bytes(self) -> int:
+        """The files `add` fetches: the variant's own (whatever part of them runs on the GPU)
+        plus the projector, the MTP head and the kit's companions."""
+        own = self.variant.size_bytes + self.variant.mtp_bytes
+        return own + self.estimate.projector_bytes + self.kit_bytes
+
+    @property
+    def image(self) -> SdCppArgs | None:
+        return self.engine_args if isinstance(self.engine_args, SdCppArgs) else None
+
+    @property
+    def audio(self) -> WhisperArgs | None:
+        return self.engine_args if isinstance(self.engine_args, WhisperArgs) else None
+
+    @property
+    def vllm(self) -> VllmArgs | None:
+        return self.engine_args if isinstance(self.engine_args, VllmArgs) else None
+
+    @property
+    def voice(self) -> AudioCppArgs | None:
+        return self.engine_args if isinstance(self.engine_args, AudioCppArgs) else None
+
+    @property
+    def ram_bytes(self) -> int:
+        """What an offload keeps in RAM (layers, or a MoE's experts); 0 when it all goes on
+        the card, or nothing fits."""
+        total, card = self.estimate.total_bytes, self.fit.gpu_bytes
+        if self.fit.level is FitLevel.NO_FIT or not 0 < card < total:
+            return 0
+        return total - card
+
+    @property
+    def vram_words(self) -> str:
+        """`8.4 GiB on the card + 15.3 GiB in RAM` for an offload, else the whole estimate:
+        a "VRAM" column is read as the card's, and a MoE plan's whole estimate can be
+        23.7 GiB on a 12 GiB card."""
+        if not self.ram_bytes:
+            return f"{self.estimate.total_bytes / GIB:.1f} GiB"
+        card = self.fit.gpu_bytes
+        return f"{card / GIB:.1f} GiB on the card + {self.ram_bytes / GIB:.1f} GiB in RAM"
+
+    @property
+    def settings_summary(self) -> str:
+        """One cell for tables: what the profile decided besides the quant."""
+        if self.vllm is not None:
+            return self.vllm.plan_summary
+        if self.engine_args is not None:
+            return self.engine_args.summary
+        return f"ctx {self.ctx:,}, KV {self.kv_type.value}"
+
+    @property
+    def speed_summary(self) -> str:
+        if self.image is not None:
+            unit = "clip" if self.image.frames else "image"
+            return f"~{self.seconds_per_image:.0f} s/{unit}"
+        if self.audio is not None:
+            return "faster than real time"
+        if self.voice is not None and self.voice.music:  # Work per second of audio
+            return f"~{1 / self.tokens_per_second:.2g} s per second of audio"
+        if self.voice is not None:
+            return f"~{self.tokens_per_second:.0f}x realtime"
+        if self.whole_input:
+            return "one pass per input"
+        return f"~{self.tokens_per_second:.0f} t/s"
+
+
+def plan_profiles(
+    facts: ModelFacts, header: GgufHeader, budget: Budget
+) -> dict[ProfileName, Profile]:
+    variants = [v for v in facts.gguf_variants if plannable(v)]
+    if not variants:
+        return {}
+    if not header.block_count:  # said as its own reason, never as "no recognisable quant"
+        raise ValueError("the GGUF header has no block count, so the KV cache cannot be sized")
+    planner = Planner(header, budget, facts.projector_bytes)
+    model_ctx = header.context_length or facts.context_length or 32768
+    if model_ctx < MIN_CTX:  # LlamaCppArgs' floor: a recipe could not hold it
+        raise ValueError(
+            f"its native context is {model_ctx} tokens, below the {MIN_CTX} this tool plans "
+            "llama-server with; it is too small a model to be useful here"
+        )
+    by_quality = sorted(variants, key=lambda v: (quant_bits(v.quant), v.size_bytes), reverse=True)
+    if facts.modality in EMBEDDING_MODALITIES:
+        return _embedding_profiles(planner, variants, by_quality, model_ctx)
+    ladder = [c for c in CTX_LADDER if c <= model_ctx] or [model_ctx]
+    check_floor(planner, facts, variants, ladder[-1])
+
+    quality_ctxs = [c for c in ladder if MIN_USEFUL_CTX <= c <= QUALITY_MAX_CTX] or ladder
+    balanced = planner.place_or_step(
+        ProfileName.BALANCED,
+        variants,
+        preferred(variants, BALANCED_PREFERENCE),
+        ladder,
+        KvType.Q8_0,
+        "4-bit weights with as much context as fits; KV cache at 8-bit.",
+    )
+    # Quality never goes below balanced's quant: on a busy card the highest quant that fit
+    # was a 1-bit build (UD-IQ1_M for Qwen3-8B and for Qwen3-30B-A3B). When no
+    # quant at least as good fits comfortably, quality runs balanced's quant offloaded.
+    floor = quant_bits(balanced.quant)
+    candidates = [v for v in by_quality if quant_bits(v.quant) >= floor]
+    best = planner.best_fitting(candidates, quality_ctxs, KvType.F16)
+    quality_variant = best or balanced.variant
+    speed_ctxs = [c for c in ladder if c <= SPEED_CTX] or ladder[-1:]
+
+    return {
+        ProfileName.QUALITY: planner.place(
+            ProfileName.QUALITY,
+            quality_variant,
+            quality_ctxs,
+            KvType.F16,
+            "Highest-quality quant that fits comfortably with an unquantised KV cache."
+            if best is not None
+            else "No quant fits comfortably: the balanced quant with an unquantised KV cache.",
+        ),
+        ProfileName.BALANCED: balanced,
+        # Never "all on the GPU": a busy card offloads speed too, and the Fit column says so.
+        ProfileName.SPEED: planner.place_or_step(
+            ProfileName.SPEED,
+            variants,
+            preferred(variants, SPEED_PREFERENCE),
+            speed_ctxs,
+            KvType.F16,
+            "Lightest 4-bit weights, 8k context, f16 cache: the least work per token.",
+        ),
+    }
+
+
+def plannable(variant: GgufVariant) -> bool:
+    """Whether the planner plans this variant at all: its bits are known and it loads."""
+    return quant_bits(variant.quant) > 0 and _loads(variant)
+
+
+def _loads(variant: GgufVariant) -> bool:
+    """Whether mnm plans it (an Engram table of type MXFP8 is refused: llama.cpp loaded none
+    until 68d20b884, and reads it as plain FP8 since)."""
+    return variant.engram is None or not variant.engram.unreadable
+
+
+STEPPED_WHY = "No 4-bit quant fits this machine: {quant}, the largest smaller quant that does."
+
+
+def _embedding_profiles(
+    planner: Planner, variants: list[GgufVariant], by_quality: list[GgufVariant], model_ctx: int
+) -> dict[ProfileName, Profile]:
+    best = by_quality[0]
+    eight_bit = next((v for v in by_quality if quant_bits(v.quant) <= 8.5), best)
+    fastest = preferred(variants, SPEED_PREFERENCE)
+    picks = (
+        (
+            ProfileName.QUALITY,
+            best,
+            f"{best.quant} weights: the most faithful vectors; inputs up to {{ctx}} tokens "
+            "(long documents).",
+        ),
+        (
+            ProfileName.BALANCED,
+            eight_bit,
+            _embedding_why(eight_bit, "indistinguishable vectors")
+            + " Inputs up to {ctx} tokens: any RAG chunk (Odysseus sends at most 900 characters).",
+        ),
+        (
+            ProfileName.SPEED,
+            fastest,
+            _embedding_why(fastest, "the smallest download")
+            + " Inputs up to {ctx} tokens, the least VRAM.",
+        ),
+    )
+    profiles = {}
+    for name, variant, why in picks:
+        ctx = min(model_ctx, EMBEDDING_CTX[name])
+        text = why.format(ctx=f"{ctx:,}")
+        profiles[name] = planner.profile(name, variant, ctx, KvType.F16, text, whole_input=True)
+    return profiles
+
+
+def _embedding_why(variant: GgufVariant, benefit: str) -> str:
+    """Prose that matches the pick: a repo with one build must not promise 8-bit or 4-bit."""
+    bits = quant_bits(variant.quant)
+    if bits <= 5:
+        return f"4-bit weights for {benefit}; slight loss in vector quality."
+    if bits <= 8.5:
+        return f"8-bit weights: {benefit}, at about half the size of 16-bit."
+    return f"{variant.quant} is the only build this repo offers; {benefit} comes with it."
+
+
+def plan_custom(
+    facts: ModelFacts,
+    header: GgufHeader,
+    budget: Budget,
+    quant: str,
+    ctx: int,
+    kv: KvType,
+    *,
+    floor: bool = False,
+) -> Profile:
+    """One explicit (quant, ctx, kv) choice, estimated the same way as the named profiles;
+    `floor` refuses one this machine's RAM and VRAM cannot hold (the user's pick)."""
+    variant = facts.variant(quant)
+    if variant is None:
+        available = ", ".join(v.quant for v in facts.gguf_variants) or "none"
+        raise ValueError(f"{facts.repo_id} has no '{quant}' variant (available: {available})")
+    planner = Planner(header, budget, facts.projector_bytes)
+    if floor:
+        check_pick(planner, facts, variant, ctx)  # the ladder's floor, at this context
+    return planner.profile(
+        ProfileName.CUSTOM,
+        variant,
+        ctx,
+        kv,
+        "Your explicit quant and context choice.",
+        whole_input=facts.modality in EMBEDDING_MODALITIES,
+    )
+
+
+@dataclass(frozen=True)
+class Planner:
+    header: GgufHeader
+    budget: Budget
+    projector_bytes: int
+    experts: Mode = "auto"  # Where experts go across cards (`mnm set experts=`)
+
+    def profile(
+        self,
+        name: ProfileName,
+        variant: GgufVariant,
+        ctx: int,
+        kv: KvType,
+        why: str,
+        ubatch: int | None = None,
+        whole_input: bool = False,
+    ) -> Profile:
+        """`whole_input` sizes the batch to the context (embedding and rerank models); `ubatch`
+        is a micro-batch the recipe already runs, which the plan never exceeds."""
+        ubatch = LlamaCppArgs.whole_input_micro_batch(ctx, whole_input, ubatch)
+        header = self.header.for_quant(variant.quant)  # this variant's density, not the file's
+        estimate = estimate_memory(
+            header,
+            variant.memory_bytes,  # an Engram table stays on disk
+            ctx,
+            kv,
+            self.projector_bytes,
+            ubatch=ubatch or DEFAULT_UBATCH,
+            whole_input=whole_input,
+            device=self.budget.device,
+        )
+        cards = list(self.budget.cards)
+        one_card = estimate
+        estimate = per_card(estimate, len(cards))  # each card's context and buffer
+        fit = fit_estimate(  # never within the spill margin of a WSL card's top
+            estimate, header, self.budget.plan_free_bytes, self.budget.ram_free_bytes
+        )
+        budget = self.budget
+        tps = self.speed(header, variant, fit)
+        if every_expert_in_ram(fit, header):  # Only when faster than whole blocks
+            plain = fit_estimate(
+                estimate, header, budget.plan_free_bytes, budget.ram_free_bytes, all_experts=False
+            )
+            plain_tps = self.speed(header, variant, plain)
+            if plain.level is not FitLevel.NO_FIT and plain_tps >= tps:
+                fit, tps = plain, plain_tps
+        placed = self.placed(header, one_card, fit)
+        if placed is not None:  # Its blocks and experts per card, the rest in RAM
+            fit, tps = placed.fit, placed.tokens_per_second
+        return Profile(
+            name=name,
+            variant=variant,
+            ctx=ctx,
+            kv_type=kv,
+            ubatch=ubatch,
+            whole_input=whole_input,
+            estimate=estimate,
+            fit=fit,
+            tokens_per_second=tps,
+            why=why,
+            tensor_split=tensor_split(cards) if len(cards) > 1 and placed is None else None,
+            main_gpu=main_gpu(cards) if len(cards) > 1 and placed is None else None,
+            placement=placed.placement if placed is not None else None,
+        )
+
+    def speed(self, header: GgufHeader, variant: GgufVariant, fit: Fit) -> float:
+        budget = self.budget
+        return estimate_tokens_per_second(
+            header,
+            variant.memory_bytes,
+            fit,
+            budget.gpu_bandwidth,
+            budget.expert_rate,
+            device=budget.device,
+            layer_rate=budget.layer_rate,
+        )
+
+    def placed(self, header: GgufHeader, estimate: MemoryEstimate, fit: Fit) -> Placed | None:
+        """A MoE that does not fit whole on several cards, placed per card; None on one
+        card, for a whole fit, a dense model, or when the cards cannot hold its dense part
+        (then the split by free VRAM stands)."""
+        if len(self.budget.cards) < 2 or not header.is_moe:
+            return None
+        if fit.level in (FitLevel.COMFORTABLE, FitLevel.TIGHT):
+            return None
+        budget = self.budget
+        return place_experts(
+            header,
+            estimate,
+            budget.cards,
+            budget.ram_free_bytes,
+            budget.expert_rate,
+            self.experts,
+            device=budget.device,
+        )
+
+    def place(
+        self,
+        name: ProfileName,
+        variant: GgufVariant,
+        ctxs: list[int],
+        kv: KvType,
+        why: str,
+        whole_input: bool = False,
+        ubatch: int | None = None,
+    ) -> Profile:
+        """Largest context at the best achievable fit level (contexts are given largest
+        first); `whole_input` and `ubatch` as for `profile`."""
+        candidates = [
+            self.profile(name, variant, ctx, kv, why, ubatch=ubatch, whole_input=whole_input)
+            for ctx in ctxs
+        ]
+        for level in _PREFERENCE:
+            for candidate in candidates:
+                if candidate.fit.level is level:
+                    return candidate
+        return candidates[-1]
+
+    def floor(self, variant: GgufVariant, ctx: int) -> Floor:
+        """The variant's RAM floor at `ctx` (`fit.plan_floor`)."""
+        return floor_at(self, variant, ctx)
+
+    def place_or_step(
+        self,
+        name: ProfileName,
+        variants: list[GgufVariant],
+        start: GgufVariant,
+        ctxs: list[int],
+        kv: KvType,
+        why: str,
+    ) -> Profile:
+        """`place` from `start`; when it fits nowhere, or the machine's RAM and VRAM cannot

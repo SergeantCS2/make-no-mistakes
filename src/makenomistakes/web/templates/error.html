@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Error · makenomistakes{% endblock %}
+{% block body %}
+<section class="panel double" aria-labelledby="err-title">
+  <h1 class="panel-title" id="err-title"><span class="st st-bad"><span class="g" aria-hidden="true">✕</span>Error</span></h1>
+  <div class="error" role="alert">{{ message }}</div>
+  {% for d in diagnoses %}<div class="error"><strong>Likely cause:</strong> {{ d.cause }}<br><strong>What to do:</strong> {{ d.remedy }}</div>{% endfor %}
+  <p class="row mt"><a class="btn" href="javascript:history.back()">Back</a> <a class="btn" href="/">Instances</a></p>
+</section>
+{% include "_guidance.html" %}
+{% endblock %}

@@ -1,0 +1,16 @@
+{% if guidance %}
+<section class="panel" aria-labelledby="guide-title">
+  <h2 class="panel-title" id="guide-title">Guidance</h2>
+  <dl class="kv">
+    <dt>What this is</dt><dd>{{ guidance.what_it_is }}</dd>
+    <dt>What to do</dt><dd>{{ guidance.what_to_do }}</dd>
+  </dl>
+  {% if guidance.alternatives %}
+  <div class="table-scroll"><table>
+    <thead><tr><th>Try instead</th><th>Downloads</th><th>Note</th><th><span class="sr-only">Actions</span></th></tr></thead>
+    <tbody>{% for alt in guidance.alternatives %}<tr><td><code>{{ alt.repo_id }}</code></td><td>{{ "{:,}".format(alt.downloads) if alt.downloads else "" }}</td><td>{{ alt.note }}</td>
+      <td><form class="inline" method="post" action="/add/plan"><input type="hidden" name="reference" value="{{ alt.repo_id }}"><button class="btn">Check fit</button></form></td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+</section>
+{% endif %}

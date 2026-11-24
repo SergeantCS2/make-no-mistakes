@@ -1,0 +1,23 @@
+{# The log panel's inside: the view switcher and Refresh swap it into #log, so the
+   tab panel itself (its role, its hidden state) is never replaced. #}
+{% set base = "/instances/" ~ recipe.name %}
+  <h2 class="panel-title" id="log-title">Engine log{% if kept_log %} <span class="hint">saved when it was stopped</span>{% endif %}</h2>
+  <div class="row" role="group" aria-label="Log view">
+    {% for key, label in (("tail", "Last 400 lines"), ("all", "All lines"), ("issues", "Issues only")) %}
+    <a class="btn {% if log_view == key %}primary{% else %}quiet{% endif %}" href="{{ base }}?log={{ key }}#log" hx-get="{{ base }}/log?view={{ key }}" hx-target="#log" hx-swap="innerHTML" {% if log_view == key %}aria-current="true"{% endif %}>{{ label }}</a>
+    {% endfor %}
+    <button type="button" class="btn quiet" hx-get="{{ base }}/log?view={{ log_view }}" hx-target="#log" hx-swap="innerHTML">Refresh</button>
+  </div>
+  {% if logs %}
+  <div class="log-grid{% if log_view == 'issues' %} issues{% endif %}">
+  <div class="log-review">
+  {% for d in review.diagnoses %}<div class="error"><strong>Likely cause:</strong> {{ d.cause }}<br><strong>What to do:</strong> {{ d.remedy }}</div>{% endfor %}
+  {% for line in review.errors %}<div class="error"><strong>Engine error:</strong> {{ line.text }}{% if line.note %}<br><span class="hint">{{ line.note }}</span>{% endif %}</div>{% endfor %}
+  {% for line in review.notable_warnings %}<div class="warnline"><strong>Engine warning:</strong> {{ line.text }}{% if line.note %}<br><span class="hint">{{ line.note }}</span>{% endif %}</div>{% endfor %}
+  {% set harmless = review.harmless_warnings %}{% if harmless %}<details><summary>{{ harmless | length }} known, harmless warning{{ "" if harmless | length == 1 else "s" }}</summary>
+  {% for line in harmless %}<div class="okline"><strong>Engine warning:</strong> {{ line.text }}<br><span class="hint">{{ line.note }}</span></div>{% endfor %}</details>{% endif %}
+  {% if review.clean %}<p class="hint">No warnings or errors in the log.</p>{% endif %}
+  </div>
+  {% if log_view != "issues" %}<pre class="log" tabindex="0" aria-label="Engine log">{{ logs }}</pre>{% endif %}
+  </div>
+  {% else %}<p class="hint">No log yet: the engine has not run since it was added.</p>{% endif %}

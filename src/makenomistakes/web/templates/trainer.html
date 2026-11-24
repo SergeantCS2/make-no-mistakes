@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% set tab = "system" %}
+{% block title %}Trainer · makenomistakes{% endblock %}
+{% block subtabs %}{% include "_system_tabs.html" %}{% endblock %}
+{% block body %}
+<section class="panel double" aria-labelledby="tr-title">
+  <h1 class="panel-title" id="tr-title">Trainer <span class="hint">mnm studio trainer install · status · rollback · uninstall</span></h1>
+  <p class="hint">Optional: Applio, built on this machine, trains an RVC voice from your recordings; the voice joins the library (System → Voices) and sings a song's vocals. A training runs while nobody uses the card: any request pauses it, and it goes on from its last checkpoint once the router has been idle a minute. It runs with no network, read-only, as you, over its own folder.</p>
+  {% if job %}{% include "_job.html" %}{% endif %}
+  {% if problem %}<p class="warnline">{{ problem }}</p>{% endif %}
+  <dl class="kv">
+    {% if ledger %}
+    <dt>Image</dt><dd><code>{{ ledger.image }}</code> for {{ variant_words }}{% if ledger.size_bytes %} · {{ "%.1f" | format(ledger.size_bytes / 1e9) }} GB{% endif %} · built {{ ago(ledger.built_at) }}{% if ledger.previous %} <span class="hint">· before it: <code>{{ ledger.previous }}</code></span>{% endif %}</dd>
+    {% if ledger.versions %}<dt>Carries</dt><dd>{% for name, v in ledger.versions | dictsort %}{{ name }} {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}</dd>{% endif %}
+    {% if current and ledger.image != current %}<dt>This mnm</dt><dd class="warnline">builds <code>{{ current }}</code>: Install builds it (the one in use stays until then).</dd>{% endif %}
+    {% else %}
+    <dt>State</dt><dd>not installed</dd>
+    {% endif %}
+    <dt>What it does</dt><dd><ul class="files">{% for line in carries %}<li>{{ line }}</li>{% endfor %}</ul></dd>
+  </dl>
+  <div class="actions">
+    <form class="inline" method="post" action="/system/trainer/install" onsubmit='return confirm({{ ("Build the trainer here? About " ~ ("%.0f" | format(image_gib["cu130"])) ~ " GB for a card, " ~ ("%.0f" | format(image_gib["cpu"])) ~ " GB for the CPU, 10-30 minutes.") | tojson }})'>
+      <label class="check"><input type="checkbox" name="cpu"> for the CPU</label>
+      <button class="btn primary"{% if job and job.running %} disabled{% endif %}>{% if ledger %}Install again{% else %}Install{% endif %}</button>
+    </form>
+    {% if ledger and ledger.previous %}<form class="inline" method="post" action="/system/trainer/rollback"><button class="btn"{% if job and job.running %} disabled{% endif %}>Roll back</button></form>{% endif %}
+    {% if ledger %}<form class="inline" method="post" action="/system/trainer/uninstall" onsubmit='return confirm({{ "Remove the trainer images? The voices it trained stay." | tojson }})'><button class="btn danger"{% if job and job.running %} disabled{% endif %}>Uninstall</button></form>{% endif %}
+  </div>
+</section>
+
+<section class="panel double" aria-labelledby="tv-title">
+  <h2 class="panel-title" id="tv-title">Train a voice <span class="hint">mnm studio train voice &lt;name&gt; --from &lt;folder&gt; --source …</span></h2>
+  <p class="hint">A folder of the voice's recordings on this machine: 10 to 60 minutes of the voice alone and dry, WAV or FLAC, is what RVC voices are trained on (less trains, and sounds less like them). The recordings are copied into the training's folder and kept on the voice by their hashes; a consent document is kept only as its hash.</p>
+  {% if not ledger %}<p class="dim">Install the trainer above first.</p>{% else %}
+  <form method="post" action="/system/trainer/train" class="stack tight">
+    <div class="role-grid">
+      <label>Name <input type="text" name="name" required maxlength="64" pattern="[a-z0-9][a-z0-9._\-]*" title="lower-case letters, digits, '.', '_' and '-'" placeholder="alto"></label>
+      <label>Whose voice <select name="source" required><option value="">choose…</option>{% for value, words in sources %}<option value="{{ value }}">{{ words }}</option>{% endfor %}</select></label>
+      <label>Epochs <input type="number" name="epochs" min="1" max="10000" value="{{ defaults.epochs }}"></label>
+      <label>Rate <select name="rate">{% for r in (32000, 40000, 48000) %}<option value="{{ r }}"{% if r == defaults.rate %} selected{% endif %}>{{ r // 1000 }} kHz</option>{% endfor %}</select></label>
+    </div>
+    <label>Folder of recordings <span class="hint">(on this machine)</span> <input type="text" name="folder" required class="wide" placeholder="~/recordings/alto"></label>
+    <label>Consent document <span class="hint">(optional, on this machine: only its hash is kept)</span> <input type="text" name="consent" class="wide" placeholder="~/consent/alto.pdf"></label>
+    <div><button class="btn primary">Train</button></div>
+  </form>
+  {% endif %}
+</section>
+
+<section class="panel double" aria-labelledby="st-title">
+  <h2 class="panel-title" id="st-title">Style trainer <span class="hint">mnm studio trainer install --for styles · status · rollback · uninstall</span></h2>
+  <p class="hint">Optional: ACE-Step 1.5's own trainer, built on this machine, teaches ACE-Step a style from your songs: a LoRA that an ACE-Step instance plays (<code>mnm set &lt;instance&gt; style=&lt;name&gt;</code>). On a card under 16 GB it trains with the tight settings, and its first epoch measures what the training itself holds of the card: too near the top on its own, it stops with what to change; taken there by other programs' share, it pauses until that room is free.</p>
+  {% if style_job %}{% with job = style_job %}{% include "_job.html" %}{% endwith %}{% endif %}
+  {% if style_problem %}<p class="warnline">{{ style_problem }}</p>{% endif %}
+  <dl class="kv">
+    {% if style_ledger %}
+    <dt>Image</dt><dd><code>{{ style_ledger.image }}</code> for {{ style_variant_words }}{% if style_ledger.size_bytes %} · {{ "%.1f" | format(style_ledger.size_bytes / 1e9) }} GB{% endif %} · built {{ ago(style_ledger.built_at) }}{% if style_ledger.previous %} <span class="hint">· before it: <code>{{ style_ledger.previous }}</code></span>{% endif %}</dd>
+    {% if style_current and style_ledger.image != style_current %}<dt>This mnm</dt><dd class="warnline">builds <code>{{ style_current }}</code>: Install builds it (the one in use stays until then).</dd>{% endif %}
+    {% else %}
+    <dt>State</dt><dd>not installed</dd>
+    {% endif %}
+    <dt>What it does</dt><dd><ul class="files">{% for line in style_carries %}<li>{{ line }}</li>{% endfor %}</ul></dd>
+  </dl>
+  <div class="actions">
+    <form class="inline" method="post" action="/system/trainer/styles/install" onsubmit='return confirm({{ ("Build the style trainer here? About " ~ ("%.0f" | format(style_gib["cu130"])) ~ " GB for a card, " ~ ("%.0f" | format(style_gib["cpu"])) ~ " GB for the CPU, 10-30 minutes.") | tojson }})'>
+      <label class="check"><input type="checkbox" name="cpu"> for the CPU</label>
+      <button class="btn primary"{% if style_job and style_job.running %} disabled{% endif %}>{% if style_ledger %}Install again{% else %}Install{% endif %}</button>
+    </form>
+    {% if style_ledger and style_ledger.previous %}<form class="inline" method="post" action="/system/trainer/styles/rollback"><button class="btn"{% if style_job and style_job.running %} disabled{% endif %}>Roll back</button></form>{% endif %}
+    {% if style_ledger %}<form class="inline" method="post" action="/system/trainer/styles/uninstall" onsubmit='return confirm({{ "Remove the style trainer images? The styles it trained stay." | tojson }})'><button class="btn danger"{% if style_job and style_job.running %} disabled{% endif %}>Uninstall</button></form>{% endif %}
+  </div>
+</section>
+
+<section class="panel double" aria-labelledby="ts-title">
+  <h2 class="panel-title" id="ts-title">Train a style <span class="hint">mnm studio train style &lt;name&gt; --from &lt;folder&gt; --caption … --source …</span></h2>
+  <p class="hint">A folder of songs on this machine: five or more, 30 seconds to 4 minutes each, WAV or FLAC keep the sound; a <code>&lt;song&gt;.txt</code> beside a song is its lyrics. The caption says what the songs sound like; the trigger word (the name unless given) goes in front of it, and a song's style line carries it afterwards. ACE-Step's checkpoint for the build is downloaded the first time (about 6 GB).</p>
+  {% if not style_ledger %}<p class="dim">Install the style trainer above first.</p>{% else %}
+  <form method="post" action="/system/trainer/style" class="stack tight">
+    <div class="role-grid">
+      <label>Name <input type="text" name="name" required maxlength="64" pattern="[a-z0-9][a-z0-9._\-]*" title="lower-case letters, digits, '.', '_' and '-'" placeholder="lofi"></label>
+      <label>Whose songs <select name="source" required><option value="">choose…</option>{% for value, words in style_sources %}<option value="{{ value }}">{{ words }}</option>{% endfor %}</select></label>
+      <label>Build <select name="build"><option value="base" selected>base</option><option value="turbo">turbo</option></select></label>
+      <label>Epochs <input type="number" name="epochs" min="1" max="10000" value="{{ style_defaults.epochs }}"></label>
+      <label>Seconds a song <input type="number" name="max_seconds" min="30" max="600" value="{{ style_defaults.max_seconds }}"></label>
+      <label>Trigger word <input type="text" name="trigger" maxlength="64" placeholder="the name"></label>
+    </div>
+    <label>Caption <input type="text" name="caption" required maxlength="512" class="wide" placeholder="warm lo-fi hip hop, dusty drums, tape hiss"></label>
+    <label>Folder of songs <span class="hint">(on this machine)</span> <input type="text" name="folder" required class="wide" placeholder="~/music/lofi"></label>
+    <label>Licence <span class="hint">(the terms, in your words; optional)</span> <input type="text" name="licence" maxlength="512" class="wide"></label>
+    <div><button class="btn primary">Train</button></div>
+  </form>
+  {% endif %}
+</section>
+
+<section class="panel double" aria-labelledby="sl-title">
+  <h2 class="panel-title" id="sl-title">Styles <span class="hint">mnm studio styles ls · show · add · rm</span></h2>
+  {% for problem in style_problems %}<p class="warnline">{{ problem }}</p>{% endfor %}
+  {% if not styles %}<p class="dim">No styles yet.</p>{% else %}
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>Style</th><th>Build</th><th>Trigger</th><th>From</th><th>Action</th></tr></thead>
+    <tbody>{% for row in styles %}<tr>
+      <td data-label="Style" class="hi">{{ row.name }}<br><span class="hint">mnm set &lt;instance&gt; style={{ row.name }}</span></td>
+      <td data-label="Build">{{ row.variant }}</td>
+      <td data-label="Trigger">{{ row.trigger }}</td>
+      <td data-label="From">{{ style_source_words[row.source] }}{% if row.training %} · {{ row.training.dataset | length }} songs, {{ row.training.epochs }} epochs{% endif %}</td>
+      <td data-label="Action" class="actions"><form class="inline" method="post" action="/system/trainer/styles/{{ row.name }}/rm" onsubmit='return confirm({{ ("Remove the style " ~ row.name ~ " and its files?") | tojson }})'><button class="btn danger">Remove</button></form></td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+</section>
+
+<section class="panel double" aria-labelledby="tl-title">
+  <h2 class="panel-title" id="tl-title">Trainings <span class="hint">mnm studio train ls · show · cancel</span></h2>
+  {% if not runs %}<p class="dim">No trainings yet.</p>{% else %}
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>Name</th><th>Kind</th><th>State</th><th>Asked</th><th>Epochs</th><th>Action</th></tr></thead>
+    <tbody>{% for run, state in runs %}<tr>
+      <td data-label="Name" class="hi">{% if run.state.value == "done" and kind_of(run) == "voice" %}<a href="/system/voices">{{ run.target }}</a>{% else %}{{ run.target }}{% endif %}</td>
+      <td data-label="Kind">{{ kind_of(run) }}</td>
+      <td data-label="State">{{ state }}{% if run.error %} <span class="hint">{{ run.error }}</span>{% endif %}{% for note in run.notes %}<br><span class="hint">{{ note }}</span>{% endfor %}</td>
+      <td data-label="Asked">{{ ago(run.created_at) }}</td>
+      <td data-label="Epochs">{{ run.settings.get("epochs", "") }}</td>
+      <td data-label="Action" class="actions">{% if run.state.value == "running" %}<form class="inline" method="post" action="/system/trainer/{{ run.id }}/cancel" onsubmit='return confirm({{ ("Cancel the training of " ~ run.target ~ "?") | tojson }})'><button class="btn danger">Cancel</button></form>{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+</section>
+{% endblock %}

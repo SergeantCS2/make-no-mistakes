@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% set tab = "system" %}
+{% block title %}Doctor · makenomistakes{% endblock %}
+{% block subtabs %}{% include "_system_tabs.html" %}{% endblock %}
+{% block body %}
+<section class="panel double" aria-labelledby="doc-title">
+  <h1 class="panel-title" id="doc-title">Doctor</h1>
+  <p class="hint">The same checks as <code>mnm doctor</code>, read now.</p>
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>Check</th><th>Status</th><th>Detail</th></tr></thead>
+    <tbody>
+    {% for c in checks %}<tr><td data-label="Check" class="hi">{{ c.name }}</td><td data-label="Status">{% set b = check_badge(c) %}<span class="{{ b.css }}"><span class="g" aria-hidden="true">{{ b.glyph }}</span>{{ b.word }}</span></td><td data-label="Detail">{{ c.detail }}{% if c.remedy %}<br><span class="hint">→ {{ c.remedy }}</span>{% endif %}</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+  <form method="post" action="/doctor/deep" class="row mt" onsubmit='return confirm({{ deep.confirm | tojson }})'>
+    <button class="btn">{{ deep.button }}</button> <span class="hint"><code>mnm doctor --deep</code>: {{ deep.hint }}</span>
+  </form>
+  {% if job %}{% include "_job.html" %}{% endif %}
+</section>
+{% endblock %}

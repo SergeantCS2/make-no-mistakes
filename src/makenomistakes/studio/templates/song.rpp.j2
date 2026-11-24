@@ -1,0 +1,28 @@
+<REAPER_PROJECT 0.1 "{{ project.version }}" {{ project.created }}
+  RIPPLE 0
+  TEMPO {{ project.tempo | num }} {{ project.beats }} {{ project.beat_unit }}
+  SAMPLERATE {{ project.rate }} 0 0
+  <NOTES 0 2
+{%- for line in project.notes %}
+    |{{ line }}
+{%- endfor %}
+  >
+{%- for marker in project.markers %}
+  MARKER {{ loop.index }} {{ marker.position | num }} "{{ marker.name }}" 0
+{%- endfor %}
+{%- for track in project.tracks %}
+  <TRACK {{ track.guid }}
+    NAME "{{ track.name }}"
+    VOLPAN {{ track.volume | num }} 0 -1 -1 1
+    MUTESOLO {{ 1 if track.mute else 0 }} 0 0
+    <ITEM
+      POSITION 0
+      LENGTH {{ track.length | num }}
+      NAME "{{ track.file_name }}"
+      <SOURCE {{ track.source_kind }}
+        FILE "{{ track.file }}"
+      >
+    >
+  >
+{%- endfor %}
+>

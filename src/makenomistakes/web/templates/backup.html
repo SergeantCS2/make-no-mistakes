@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% set tab = "system" %}
+{% block title %}Backup · makenomistakes{% endblock %}
+{% block subtabs %}{% include "_system_tabs.html" %}{% endblock %}
+{% block body %}
+<section class="panel double" aria-labelledby="b-title">
+  <h1 class="panel-title" id="b-title">Backup</h1>
+  <p class="hint">The same as <code>mnm backup ls</code>: the recipes, sets, workflows, approvals and readings in one archive a night, never a secret's value or a model file. Each backup is restored in a scratch state before the rotation keeps the last 7 daily and 4 weekly.</p>
+  <dl class="kv">
+    <dt>Folder</dt><dd>{{ folder }}</dd>
+    <dt>Timer</dt><dd>{{ timer }}</dd>
+    <dt>Last restore test</dt><dd id="last-test">{% if last.test %}<span class="{{ 'hi' if last.test.ok else '' }}">{{ last.test.line }}</span> <span class="hint">({{ last.test.at.astimezone().strftime("%Y-%m-%d %H:%M") }}, {{ last.test.file or "no file" }})</span>{% else %}none yet: Back up now runs one{% endif %}</dd>
+  </dl>
+  {% if last.test and not last.test.ok %}<div class="error"><strong>The last restore test failed</strong> {{ last.test.line }}</div>{% endif %}
+  {% if last.backup and not last.backup.ok %}<div class="error">The last backup failed: {{ last.backup.line }}</div>{% endif %}
+  {% if rows %}
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>Backup</th><th>Size</th><th>Age</th><th>Kept as</th></tr></thead>
+    <tbody>{% for r in rows %}<tr><td data-label="Backup" class="hi">{{ r.name }}</td><td data-label="Size">{{ r.size }}</td><td data-label="Age">{{ r.age }}</td><td data-label="Kept as">{{ r.kept }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<div class="empty"><h2>No backups yet</h2><p>Back up now writes the first; <code>mnm backup schedule --at 03:30</code> writes one every night.</p></div>{% endif %}
+  <form method="post" action="/system/backup/now" class="row mt">
+    <button class="btn primary">Back up now</button> <span class="hint"><code>mnm backup --auto</code>: written, restored in a scratch state, then the old ones rotated.</span>
+  </form>
+  {% if job %}{% include "_job.html" %}{% endif %}
+</section>
+{% endblock %}

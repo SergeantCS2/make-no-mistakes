@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% set tab = "system" %}
+{% block title %}Apps · makenomistakes{% endblock %}
+{% block subtabs %}{% include "_system_tabs.html" %}{% endblock %}
+{% block body %}
+{% set busy = job and job.state == JobState.RUNNING %}
+<section class="panel double" aria-labelledby="ap-title">
+  <h1 class="panel-title" id="ap-title">Workspace apps <span class="hint">mnm apps install · start · stop · update · rollback</span></h1>
+  <p class="hint">mnm installs OpenCode, LibreChat and OpenHands at the versions it was tested with, on this machine only (127.0.0.1; a Windows browser reaches them through localhost), with their settings written from the router's models by desk role. Goose and Odysseus are connected, never installed. Uninstalling asks about the data, so it stays in {{ platform().terminal }}: <code>mnm apps uninstall &lt;app&gt;</code>.</p>
+  {% if job %}{% include "_job.html" %}{% endif %}
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>App</th><th>State</th><th>Version</th><th>URL</th><th><span class="sr-only">Actions</span></th></tr></thead>
+    <tbody>{% for row in rows %}{% set s = row.status %}<tr>
+      <td data-label="App" class="hi">{{ s.label }} <span class="hint">{{ s.definition.licence }}</span></td>
+      <td data-label="State"><span class="st {% if s.state == 'running' %}st-ok{% elif s.state == 'unknown' %}st-bad{% elif s.state == 'stopped' %}st-warn{% else %}st-off{% endif %}">{{ s.state }}</span>{% if s.error %}<div class="error">{{ s.error }}</div>{% endif %}</td>
+      <td data-label="Version">{% if s.version %}{{ s.version }}{% if s.behind %} <span class="warnline">pin {{ s.pinned }}: update</span>{% endif %}{% elif s.pinned %}<span class="dim">pin {{ s.pinned }}</span>{% endif %}</td>
+      <td data-label="URL">{% if s.installed and s.definition.url %}<a href="{{ s.definition.url }}">{{ s.definition.url }}</a>{% endif %}</td>
+      <td class="actions">
+        {% if s.definition.kind.value != "connect" %}
+        {% if not s.installed %}<form class="inline" method="post" action="/system/apps/{{ s.app.value }}/install" onsubmit='return confirm({{ ("Install " ~ s.label ~ " " ~ s.pinned ~ " here? It downloads its pinned build and starts it.") | tojson }})'><button class="btn primary" {% if busy %}disabled{% endif %}>Install</button></form>
+        {% else %}
+          {% if s.running %}<form class="inline" method="post" action="/system/apps/{{ s.app.value }}/stop"><button class="btn" {% if busy %}disabled{% endif %}>Stop</button></form>
+          {% else %}<form class="inline" method="post" action="/system/apps/{{ s.app.value }}/start"><button class="btn primary" {% if busy %}disabled{% endif %}>Start</button></form>{% endif %}
+          {% if s.behind %}<form class="inline" method="post" action="/system/apps/{{ s.app.value }}/update"><button class="btn" {% if busy %}disabled{% endif %}>Update to {{ s.pinned }}</button></form>{% endif %}
+          {% if s.installed.previous %}<form class="inline" method="post" action="/system/apps/{{ s.app.value }}/rollback" onsubmit='return confirm({{ ("Go back to " ~ s.label ~ " " ~ s.installed.previous.version ~ "?") | tojson }})'><button class="btn danger" {% if busy %}disabled{% endif %}>Roll back to {{ s.installed.previous.version }}</button></form>{% endif %}
+        {% endif %}
+        {% else %}<span class="dim">connect only</span>{% endif %}
+      </td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% for row in rows %}{% set s = row.status %}
+<section class="panel double" aria-labelledby="ap-{{ s.app.value }}">
+  <h2 class="panel-title" id="ap-{{ s.app.value }}">{{ s.label }} <span class="hint">{{ s.definition.blurb }}</span></h2>
+  {% for note in s.notes %}<div class="hint">{{ note }}</div>{% endfor %}
+  {% if row.card_error %}<div class="error">{{ row.card_error }}</div>{% elif row.card %}
+  {% for line in row.card.lines %}<p class="hint">{{ line }}</p>{% endfor %}
+  {% for file in row.card.files %}<h3 class="sub-head">{{ file.label }}</h3><pre>{{ file.text() }}</pre>{% endfor %}
+  {% for label, text in row.card.blocks %}<h3 class="sub-head">{{ label }}</h3><pre>{{ text }}</pre>{% endfor %}
+  <p class="hint"><code>mnm url --for {{ s.app.value }}{% if row.card.files %} --write{% endif %}</code>{% if s.definition.kind.value == "connect" %} · <code>mnm apps connect {{ s.app.value }}</code>{% endif %}</p>
+  {% endif %}
+</section>
+{% endfor %}
+{% endblock %}

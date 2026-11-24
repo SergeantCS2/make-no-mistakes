@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% from "_macros.html" import switcher, cards %}
+{% set tab = "workflows" %}
+{% block title %}{{ workflow.name }} · makenomistakes{% endblock %}
+{% block subtabs %}<a href="/workflows">← All sets</a><a href="/workflows/{{ workflow.name }}" aria-current="page">{{ workflow.name }}</a><a href="#wcards">Cards</a>{% endblock %}
+{% block body %}
+<section class="panel double" aria-labelledby="w-title">
+  <h1 class="panel-title" id="w-title">{{ workflow.name }}</h1>
+  <p class="dim">set · {{ members | length }} members{% if workflow.swap %} · members take turns on the card{% endif %}{% if workflow.persistent %} · persistent: its members are never unloaded, for room or when idle{% endif %}</p>
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>Role</th><th>Instance</th><th>Type</th><th>State</th><th>Fits now</th></tr></thead>
+    <tbody>
+    {% for m in members %}{% set status = m.status %}{% set v = m.verdict %}
+    <tr>
+      <td data-label="Role">{{ m.role }}</td>
+      {% if m.missing %}<td data-label="Instance"><strong>{{ m.name }}</strong> <span class="st st-bad"><span class="g" aria-hidden="true">✕</span>gone</span></td><td colspan="2" class="hint">This instance was removed; add it again or remove the set.</td>
+      {% else %}<td class="name" data-label="Instance"><a class="inst" href="/instances/{{ m.name }}">{{ m.name }}</a></td>
+      <td data-label="Type">{{ m.recipe.modality.label }}</td>
+      <td data-label="State" class="nowrap">{% include "_state.html" %}</td>{% endif %}
+      <td data-label="Fits now" class="nowrap">{% include "_verdict.html" %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% with v = verdict %}<p>Fit together: {% include "_verdict.html" %} <span class="hint">{{ verdict.note | ticks }}</span></p>{% endwith %}
+  {% if job %}{% include "_job.html" %}{% endif %}
+  <div class="actions">
+    {% if members | rejectattr("running") | list and not members | selectattr("missing") | list %}
+    <form class="inline" method="post" action="/workflows/{{ workflow.name }}/start"{% if verdict.warns %} onsubmit='return confirm({{ (verdict.note ~ " Start anyway?") | tojson }})'{% endif %}><button class="btn {% if verdict.warns %}danger{% else %}primary{% endif %}" title="{{ verdict.note }}">Start all</button></form>
+    {% endif %}
+    {% if members | selectattr("running") | list %}
+    <form class="inline" method="post" action="/workflows/{{ workflow.name }}/stop"><button class="btn">Stop all</button></form>
+    {% endif %}
+    {% if not workflow.swap %}<form class="inline" method="post" action="/workflows/{{ workflow.name }}/persistent"><input type="hidden" name="persistent" value="{{ 'false' if workflow.persistent else 'true' }}"><button class="btn" title="Persistent: while a member runs, nothing unloads it, for room or when idle">{{ 'Not persistent' if workflow.persistent else 'Make persistent' }}</button></form>{% endif %}
+    <form class="inline" method="post" action="/workflows/{{ workflow.name }}/remove" onsubmit='return confirm({{ ("Remove the set " ~ workflow.name ~ "? Its instances stay.") | tojson }})'><button class="btn danger">Remove set</button></form>
+  </div>
+</section>
+<section class="panel" id="members" aria-labelledby="wm-title">
+  <h2 class="panel-title" id="wm-title">Members</h2>
+  <form method="post" action="/workflows/{{ workflow.name }}/members" class="stack tight">
+    <div class="role-grid">
+    {% for role in roles %}{% set now = workflow.members.get(role, "") %}
+      <label>{{ role }}<br><select name="{{ role }}"><option value="">(none)</option>{% for name in by_role[role] %}<option value="{{ name }}"{% if name == now %} selected{% endif %}>{{ name }}</option>{% endfor %}{% if now and now not in by_role[role] %}<option value="{{ now }}" selected>{{ now }} (gone)</option>{% endif %}</select></label>
+    {% endfor %}
+    </div>
+    <p class="row"><button class="btn">Save members</button> <span class="hint">An emptied role leaves the set; its instance stays.{% if workflow.swap %} A member joining must be stopped first; one leaving is stopped.{% endif %}</span></p>
+  </form>
+</section>
+<section class="panel" id="wcards" aria-labelledby="wc-title">
+  <h2 class="panel-title" id="wc-title">Paste into</h2>
+  {{ switcher("Apps", consumers, consumer, "/workflows/" ~ workflow.name, "#wcards") }}
+  {{ switcher("Coding agents", agents, consumer, "/workflows/" ~ workflow.name, "#wcards") }}
+  <div class="member-grid">
+  {% for role, recipe, urls in cards_by_member %}
+  <section class="member" aria-labelledby="m-{{ recipe.name }}">
+    <h3 id="m-{{ recipe.name }}">{{ role }}: <a href="/instances/{{ recipe.name }}">{{ recipe.name }}</a> <span class="hint">{{ recipe.modality.label }}</span></h3>
+    {{ cards(urls) }}
+  </section>
+  {% endfor %}
+  </div>
+</section>
+{% endblock %}

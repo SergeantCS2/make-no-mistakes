@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% set tab = "workflows" %}
+{% block title %}Sets · makenomistakes{% endblock %}
+{% block subtabs %}<a href="/workflows" aria-current="page">All sets</a><a href="#create">Create</a>{% endblock %}
+{% block body %}
+<section class="panel double" aria-labelledby="wf-title">
+  <h1 class="panel-title" id="wf-title">Sets</h1>
+  <p class="hint">A set is a group of instances with a role each (a chat model, a coder, an image model, a voice …) that starts and stops together and is planned to fit together on this card. With <em>take turns</em>, members that don't fit together share the card: a request to a parked member loads it and parks the others. The set's page gathers every member's URLs for one app.</p>
+  {% if not rows %}<div class="empty"><h2>No sets yet</h2><p>Create one below from the instances you have, or in a terminal: <code>mnm sets create studio chat=&lt;name&gt; image=&lt;name&gt;</code>.</p></div>{% endif %}
+  {% if rows %}
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>Set</th><th>Members</th><th>Running</th><th>Fit together</th><th><span class="sr-only">Actions</span></th></tr></thead>
+    <tbody>
+    {% for workflow, members, v in rows %}
+    <tr>
+      <td class="name" data-label="Set"><a class="inst" href="/workflows/{{ workflow.name }}">{{ workflow.name }}</a>{% if workflow.swap %}<span class="src">members take turns</span>{% endif %}{% if workflow.persistent %}<span class="src">persistent</span>{% endif %}</td>
+      <td data-label="Members">{% for m in members %}<span class="nowrap">{{ m.role }}: {% if m.missing %}{{ m.name }} <span class="st st-bad"><span class="g" aria-hidden="true">✕</span>gone</span>{% else %}<a href="/instances/{{ m.name }}">{{ m.name }}</a>{% endif %}</span>{% if not loop.last %}, {% endif %}{% endfor %}</td>
+      <td data-label="Running" class="nowrap">{{ members | selectattr("running") | list | length }}/{{ members | length }}</td>
+      <td data-label="Fit together" class="nowrap">{% include "_verdict.html" %}</td>
+      <td class="actions">
+        <a class="btn quiet" href="/workflows/{{ workflow.name }}">Details</a>
+        {% if members | rejectattr("running") | list and not members | selectattr("missing") | list %}
+        <form class="inline" method="post" action="/workflows/{{ workflow.name }}/start"{% if v.warns %} onsubmit='return confirm({{ (v.note ~ " Start anyway?") | tojson }})'{% endif %}><button class="btn {% if v.warns %}danger{% else %}primary{% endif %}" title="{{ v.note }}">Start all</button></form>
+        {% endif %}
+        {% if members | selectattr("running") | list %}
+        <form class="inline" method="post" action="/workflows/{{ workflow.name }}/stop"><button class="btn">Stop all</button></form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% endif %}
+</section>
+<section class="panel" id="create" aria-labelledby="create-title">
+  <h2 class="panel-title" id="create-title">Create a set</h2>
+  <form method="post" action="/workflows" class="stack tight">
+    <label>Name <input type="text" name="name" pattern="[a-z0-9][a-z0-9\-]*" placeholder="studio" required></label>
+    <div class="role-grid">
+    {% for role in roles %}
+      <label>{{ role }}<br><select name="{{ role }}"><option value="">(none)</option>{% for name in by_role[role] %}<option value="{{ name }}">{{ name }}</option>{% endfor %}</select></label>
+    {% endfor %}
+    </div>
+    <label class="check"><input type="checkbox" name="swap" value="true"> Take turns (<code>--swap</code>): members share the card, a request to a parked one loads it (20–60 s) and parks the others. Members must be stopped first.</label>
+    <label class="check"><input type="checkbox" name="persistent" value="true"> Persistent (<code>--persistent</code>): while a member runs, nothing unloads it, for another model's room or when idle. Not with take turns.</label>
+    <p class="row"><button class="btn primary">Create</button> <span class="hint">Pick an instance for each role you want; nothing starts until you say so.</span></p>
+  </form>
+</section>
+{% if jobs %}
+<section class="panel" aria-labelledby="wfact-title"><h2 class="panel-title" id="wfact-title">Recent activity</h2>
+  {% for job in jobs %}{% include "_job.html" %}{% endfor %}
+</section>
+{% endif %}
+{% endblock %}

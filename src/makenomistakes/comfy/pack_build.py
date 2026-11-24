@@ -1,0 +1,442 @@
+"""Installing the approved node packs: one Docker layer over mnm's ComfyUI
+image, generated from the approvals. Each pack comes from its approved zip (hash checked),
+unpacked with every path checked; its pip requirements are plain names and versions only and
+install under the base image's own versions (`pip freeze`), so no pack replaces torch or
+anything else ComfyUI runs on; a pack that needs another version fails the build, which says
+which. After the build ComfyUI starts on the new layer and every pack must import; one that
+does not puts the previous layer back.
+"""
+
+from __future__ import annotations
+
+import io
+import re
+import shutil
+import stat
+import tempfile
+import zipfile
+from collections.abc import Callable
+from pathlib import Path, PurePosixPath
+
+from makenomistakes.comfy import build_stream
+from makenomistakes.comfy.engine import (
+    BUILD_SECONDS,
+    NOT_INSTALLED,
+    ComfyDockerError,
+    ComfyEngine,
+    State,
+)
+from makenomistakes.comfy.image import IMAGE_REPO, ComfyError, Ledger, build_options
+from makenomistakes.comfy.models import Models, Status, Where, parse_source
+from makenomistakes.comfy.pack_rules import MAX_FILES, MAX_UNPACKED, requirements
+from makenomistakes.comfy.packs import (
+    Approval,
+    PackStore,
+    VettedPack,
+    assess,
+    set_hash,
+    vetted,
+)
+from makenomistakes.comfy.registry import PackError, Registry, folder_of
+from makenomistakes.comfy.report import ModelNeed
+from makenomistakes.locking import FolderLock, shared_lock
+from makenomistakes.recipes.model import CONTAINER_MODELS_DIR
+
+WEIGHTS_FOLDER = "packs"  # `<models>/comfyui/packs/<pack>/`: a pack's runtime downloads
+_FAILED = re.compile(r"\(IMPORT FAILED\):\s*(\S+)")
+Progress = Callable[[str], None]
+
+
+LOCKS = "locks"  # <state>/comfy/packs/locks/<tag>.txt
+BUILDS = "builds"  # <state>/comfy/packs/builds/build-*/: one per install, removed after it
+BUILDING_LOCK = ".packs-build.lock"  # beside ComfyUI's ledger: one packs install at a time
+ANOTHER_BUILD = (
+    "Another node packs install is under way (here or in another mnm); install again once it ends."
+)
+MOVED = (
+    "ComfyUI's image or its node packs changed while the packs built (an install or a "
+    "rollback meanwhile), so nothing was switched: `mnm comfyui packs install` builds them "
+    "for ComfyUI as it is now."
+)
+_PIN = re.compile(r"^[A-Za-z0-9._-]+==")
+# A pack's requirements install from wheels only: no package's own build code runs on the box
+# (an sdist's setup.py would, with the build's network); one without a wheel is named.
+PIP_BINARY = "--only-binary :all:"
+_NO_WHEEL = re.compile(r"No matching distribution found for ([^\s]+)")
+
+
+def _worded(tail: str) -> str:
+    """pip's last lines, with a requirement that has no wheel said plainly."""
+    found = _NO_WHEEL.search(tail)
+    if found is None:
+        return tail
+    return (
+        f"{found.group(1)} has no prebuilt wheel for this ComfyUI's Python (mnm installs pack "
+        "requirements from wheels only, so no package's build code runs here). A newer version "
+        f"of the pack may not need it.\n{tail}"
+    )
+
+
+def unpack(data: bytes, dest: Path) -> None:
+    """A pack's zip into `dest`: no absolute path, no `..`, no link, bounded in size."""
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(data))
+    except zipfile.BadZipFile as exc:
+        raise PackError("The pack's download is not a zip.") from exc
+    with archive:
+        entries = archive.infolist()
+        if len(entries) > MAX_FILES:
+            raise PackError(f"The pack has more than {MAX_FILES} files.")
+        if sum(e.file_size for e in entries) > MAX_UNPACKED:
+            raise PackError(f"The pack unpacks to more than {MAX_UNPACKED // 2**20} MiB.")
+        for entry in entries:
+            parts = PurePosixPath(entry.filename.replace("\\", "/")).parts
+            bad = not parts or entry.filename.startswith(("/", "\\")) or ".." in parts
+            if bad or ":" in parts[0] or stat.S_ISLNK(entry.external_attr >> 16):
+                raise PackError(f"The pack holds a path mnm will not unpack: {entry.filename!r}")
+            target = dest.joinpath(*parts)
+            if entry.is_dir():
+                target.mkdir(parents=True, exist_ok=True)
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with archive.open(entry) as source, target.open("wb") as out:
+                shutil.copyfileobj(source, out)
+
+
+def dockerfile(packs: list[tuple[str, bool, str]], base: str, locked: bool = False) -> str:
+    """The layer: (folder, has requirements, weights folder) per pack, over the image `base`.
+    `locked`: a rebuild of a layer built before installs under what that build resolved
+    (`lock.txt`). pip runs under umask 022, so only the packs' own folder is made readable
+    after (a `chmod -R` of the venv took 411 s)."""
+    lines = [
+        "# syntax=docker/dockerfile:1",
+        "# Generated by mnm: the approved node packs over mnm's ComfyUI image.",
+        f"ARG BASE={base}",  # a default: BuildKit warns about `FROM ${BASE}` without one
+        "FROM ${BASE}",
+        "RUN pip freeze | grep -E '^[A-Za-z0-9._-]+==' > /opt/mnm-pins.txt",
+        "COPY nodes/ /opt/comfyui/custom_nodes/",
+    ]
+    wanted = [f"-r /opt/mnm-requirements/{folder}.txt" for folder, has, _ in packs if has]
+    if wanted:
+        lock = " -c /opt/mnm-lock.txt" if locked else ""
+        lines += ["COPY requirements/ /opt/mnm-requirements/"]
+        lines += ["COPY lock.txt /opt/mnm-lock.txt"] if locked else []
+        lines += [
+            "RUN --mount=type=secret,id=ca,required=false \\",
+            "    umask 022; \\",
+            "    if [ -s /run/secrets/ca ]; then export PIP_CERT=/run/secrets/ca; fi; \\",
+            f"    pip install {PIP_BINARY} -c /opt/mnm-pins.txt -c /opt/constraints.txt{lock} \\",
+            f"      {' '.join(wanted)}",
+        ]
+    for folder, _has, weights in packs:
+        if weights:
+            inside = f"/opt/comfyui/custom_nodes/{folder}/{weights}"
+            outside = f"{CONTAINER_MODELS_DIR}/comfyui/{WEIGHTS_FOLDER}/{folder}"
+            lines.append(f"RUN rm -rf {inside} && ln -s {outside} {inside}")
+    lines.append("RUN chmod -R a+rX /opt/comfyui/custom_nodes")
+    return "\n".join(lines) + "\n"
+
+
+def import_failures(log: str) -> list[str]:
+    """The packs ComfyUI could not import (its `(IMPORT FAILED): <path>` lines)."""
+    return sorted({PurePosixPath(m.group(1)).name for m in _FAILED.finditer(log)})
+
+
+class PackBuilder:
+    def __init__(
+        self, engine: ComfyEngine, store: PackStore, registry: Registry | None = None
+    ) -> None:
+        self.engine = engine
+        self.store = store
+        self.registry = registry  # None: no re-check against the Registry (tests, offline)
+
+    @property
+    def builds(self) -> Path:
+        """Where each install renders its own build folder (`builds/build-*`): two never
+        share one (two installs would empty one shared folder under each other)."""
+        return self.store.folder / BUILDS
+
+    def _recheck(self, approvals: list[Approval], progress: Progress) -> None:
+        """Each approval asked of the Registry again before it is built in: a pack banned,
+        deleted or flagged since the user approved it is refused, not rebuilt from its kept
+        zip without a word. The Registry not answering is said and the build goes on (the
+        zips are checked by their hashes either way)."""
+        if self.registry is None:
+            return
+        refused = []
+        for approval in approvals:
+            if approval.source == "github":  # pinned by its commit and hash: no Registry to ask
+                continue
+            try:
+                found = assess(self.registry, approval.pack, approval.version)
+            except PackError as exc:
+                progress(f"Could not ask the Registry about {approval.pack} again ({exc})")
+                continue
+            refused += [f"{approval.pack} {approval.version}: {why}" for why in found.refusals]
+        if refused:
+            raise PackError(
+                "Since its approval the Registry refuses: "
+                + "; ".join(refused)
+                + ". `mnm comfyui packs rm <pack>` (or a newer version), then install again."
+            )
+
+    def lock_path(self, tag: str) -> Path:
+        """What a layer's build resolved (`pip freeze`), kept for a rebuild of the same tag."""
+        return self.store.folder / LOCKS / f"{tag.rsplit(':', 1)[-1]}.txt"
+
+    def render(self, approvals: list[Approval], base: str, lock: str = "") -> Path:
+        """A build folder of this install's own: each pack unpacked, its requirements checked,
+        over the image `base`; `lock`, the versions an earlier build of the same layer
+        resolved. The caller removes it."""
+        self.builds.mkdir(parents=True, exist_ok=True)
+        context = Path(tempfile.mkdtemp(prefix="build-", dir=self.builds))
+        (context / "nodes").mkdir()
+        (context / "requirements").mkdir()
+        packs = []
+        for approval in approvals:
+            folder = folder_of(approval.pack)
+            row = vetted_row(approval)
+            dest = context / "nodes" / folder
+            unpack(self.store.zip_bytes(approval), dest)
+            listed = dest / (row.requirements if row else "requirements.txt")
+            wanted = (
+                requirements(listed.read_text("utf-8"), approval.pack) if listed.is_file() else []
+            )
+            if wanted:
+                (context / "requirements" / f"{folder}.txt").write_text(
+                    "\n".join(wanted) + "\n", encoding="utf-8"
+                )
+            packs.append((folder, bool(wanted), row.weights_dir if row else ""))
+        if lock:
+            (context / "lock.txt").write_text(lock, encoding="utf-8")
+        (context / "Dockerfile").write_text(dockerfile(packs, base, bool(lock)), encoding="utf-8")
+        return context
+
+    def install(self, progress: Progress, ca: Path | None = None) -> Ledger:
+        """Build the layer for the approved set, start ComfyUI on it and check every pack
+        imported; the layer before it stays for `mnm comfyui packs rollback`. The build's own
+        output reaches `progress` as it comes, each line a `BuildLine`. One install at a time
+        on the box (`packs_building`); the build runs without the engine's lock, so the switch
+        refuses when ComfyUI changed meanwhile (`_use`)."""
+        with packs_building(self.engine).attempt() as mine:
+            if not mine:
+                raise PackError(ANOTHER_BUILD)
+            shutil.rmtree(self.builds, ignore_errors=True)  # a killed install's, if any
+            return self._install(progress, ca)
+
+    def _install(self, progress: Progress, ca: Path | None) -> Ledger:
+        old = self.engine.ledger()
+        if old is None:
+            raise PackError(NOT_INSTALLED)
+        approvals = self.store.approvals()
+        if not approvals:
+            return self._use(lambda now: _switch(now, None, []), progress, built_on=old)
+        self._recheck(approvals, progress)
+        tag = f"{old.image}-p{set_hash(approvals)}"
+        names = [f"{a.pack}@{a.version}" for a in approvals]
+        built = tag != old.packs_image or not self._present(tag)
+        if built:
+            self._build(approvals, tag, old.image, progress, ca)
+        ledger = self._use(lambda now: _switch(now, tag, names), progress, built_on=old)
+        if built:
+            self._record(tag)
+        return ledger
+
+    def _build(
+        self, approvals: list[Approval], tag: str, base: str, progress: Progress, ca: Path | None
+    ) -> None:
+        lock = self.lock_path(tag)
+        context = self.render(approvals, base, lock.read_text("utf-8") if lock.is_file() else "")
+        again = " again, as it was resolved before" if lock.is_file() else ""
+        names = ", ".join(f"{a.pack}@{a.version}" for a in approvals)
+        progress(f"Building the node packs layer{again} ({names})")
+        argv = [
+            "docker", "build", build_stream.PLAIN, "--tag", tag,
+            "--build-arg", f"BASE={base}",
+            "--label", "mnm.engine=comfyui", *build_options(ca), str(context),
+        ]  # fmt: skip
+        try:
+            code, tail = build_stream.build(
+                self.engine.runner, argv, progress, self.engine.clock, BUILD_SECONDS
+            )
+        finally:
+            shutil.rmtree(context, ignore_errors=True)  # the zips stay, checked by hash
+        if code != 0:
+            raise PackError(f"The node packs did not install:\n{_worded(tail)}")
+
+    def _present(self, tag: str) -> bool:
+        return self.engine.runner.run(["docker", "image", "inspect", tag], timeout=30)[0] == 0
+
+    def _record(self, tag: str) -> None:
+        """The layer's resolved versions, read offline from the image itself."""
+        argv = ["docker", "run", "--rm", "--network", "none", "--entrypoint", "pip", tag, "freeze"]
+        code, out, _err = self.engine.runner.run(argv, timeout=300)
+        pins = [line for line in out.splitlines() if _PIN.match(line)]
+        if code == 0 and pins:
+            path = self.lock_path(tag)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("\n".join(pins) + "\n", encoding="utf-8")
+
+    def rollback(self, progress: Progress) -> Ledger:
+        def back(old: Ledger) -> Ledger:
+            if old.packs_previous is None:
+                raise PackError("There is no earlier node packs layer to go back to.")
+            if not old.packs_previous.startswith(f"{old.image}-p"):
+                raise PackError(
+                    "The layer before was built on another ComfyUI image: "
+                    "`mnm comfyui packs install` builds the packs for this one."
+                )
+            return old.model_copy(
+                update={
+                    "packs_image": old.packs_previous,
+                    "packs": old.previous_packs,
+                    "packs_previous": old.packs_image,
+                    "previous_packs": old.packs,
+                }
+            )
+
+        return self._use(back, progress)
+
+    def _use(
+        self,
+        change: Callable[[Ledger], Ledger],
+        progress: Progress,
+        built_on: Ledger | None = None,
+    ) -> Ledger:
+        """Save the new layer and start ComfyUI on it; a pack that fails to import puts the
+        old ledger back (and ComfyUI as it was). Under the engine's lock, from the ledger as
+        it is now (a run's start, or another change, waits for the check). `built_on`: the
+        ledger a build read before its minutes without the lock; a ComfyUI install or
+        rollback, or another packs change, made since refuses the switch rather than be
+        undone."""
+        with self.engine.locked():
+            now = self.engine.ledger()
+            if now is None:
+                raise PackError(NOT_INSTALLED)
+            moved = built_on is not None and (now.image, now.packs_image) != (
+                built_on.image,
+                built_on.packs_image,
+            )
+            if moved:
+                raise PackError(MOVED)
+            return self._switch(now, change(now), progress)
+
+    def _switch(self, old: Ledger, ledger: Ledger, progress: Progress) -> Ledger:
+        if ledger == old:
+            return old  # the same layer: ComfyUI is left as it is
+        running = self._running()
+        self.engine.save(ledger)
+        if not ledger.packs:
+            if running:
+                self.engine.stop()
+                self.engine.start(progress)
+            return ledger
+        progress("Starting ComfyUI to check every pack imports")
+        try:  # Docker refusing `rm` or `logs`, or a start that failed: nothing was checked
+            self.engine.stop()
+            self.engine.start(progress)
+            failed = import_failures(self.engine.read_log(5000))
+        except ComfyError as exc:
+            self._put_back(old, running, progress)
+            raise PackError(
+                f"The packs could not be checked, so the layer before stays in use: {exc}"
+            ) from exc
+        if failed:
+            lines = self.engine.logs(400).splitlines()
+            log = "\n".join(line for line in lines if "Error" in line)[-3000:]
+            self._put_back(old, running, progress)
+            raise PackError(
+                f"These packs did not load, so the layer before stays in use: "
+                f"{', '.join(failed)}\n{log}"
+            )
+        if not running:
+            self.engine.stop()
+        self._prune(ledger)
+        return ledger
+
+    def _put_back(self, old: Ledger, running: bool, progress: Progress) -> None:
+        """The layer before, and ComfyUI as it was. Recorded whatever Docker says next; a
+        container Docker cannot remove keeps its address (never "stopped" on a guess)."""
+        try:
+            self.engine.stop()
+        finally:
+            now = self.engine.ledger()
+            self.engine.save(old.model_copy(update={"address": now.address if now else None}))
+        if running:
+            self.engine.start(progress)
+
+    def _running(self) -> bool:
+        """Whether ComfyUI runs now, refused while it runs a workflow or Docker or ComfyUI
+        does not say (unknown is never idle: a switch stops it)."""
+        try:
+            running = self.engine.observe() is State.RUNNING
+        except ComfyDockerError as exc:
+            raise PackError(
+                f"Docker could not be asked whether ComfyUI runs ({exc}): nothing was changed; "
+                "try again once it answers."
+            ) from exc
+        if running and (why := self.engine.busy_words()) is not None:
+            raise PackError(f"{why}: wait for it to finish, then try again.")
+        return running
+
+    def _prune(self, ledger: Ledger) -> None:
+        """Pack layers older than the one before go: only the current and the rollback stay."""
+        keep = {ledger.packs_image, ledger.packs_previous}
+        code, out, _err = self.engine.runner.run(
+            ["docker", "image", "ls", "--format", "{{.Repository}}:{{.Tag}}", IMAGE_REPO]
+        )
+        for image in out.split() if code == 0 else []:
+            if image.startswith(f"{ledger.image}-p") and image not in keep:
+                self.engine.runner.run(["docker", "image", "rm", image])
+                self.lock_path(image).unlink(missing_ok=True)
+
+
+def packs_building(engine: ComfyEngine) -> FolderLock:
+    """What a packs install holds while it renders, builds and switches (minutes, most of
+    them without the engine's lock): another install refuses, and so do the web's ComfyUI
+    jobs (`web/comfy_jobs.py`), across mnm's processes."""
+    return shared_lock(engine.base, BUILDING_LOCK)
+
+
+def _switch(old: Ledger, image: str | None, packs: list[str]) -> Ledger:
+    """The ledger with `image` as the packs layer in use, the one in use now kept as the one
+    before (a layer kept as it is changes nothing)."""
+    if image == old.packs_image:
+        return old.model_copy(update={"packs": packs})
+    return old.model_copy(
+        update={
+            "packs_image": image,
+            "packs": packs,
+            "packs_previous": old.packs_image or old.packs_previous,
+            "previous_packs": old.packs if old.packs_image else old.previous_packs,
+        }
+    )
+
+
+def vetted_row(approval: Approval) -> VettedPack | None:
+    """The vetted row a Registry approval was built from; a GitHub copy named and tagged like
+    one is not it (its own `requirements.txt`, no weights fetched for it)."""
+    return vetted(approval.pack, approval.version) if approval.source == "registry" else None
+
+
+def weights_folder(pack: str) -> str:
+    """The ComfyUI links folder kind for a pack's runtime downloads."""
+    return f"{WEIGHTS_FOLDER}/{folder_of(pack)}"
+
+
+def pack_weights(approvals: list[Approval]) -> list[Status]:
+    """The runtime downloads of the approved vetted packs, as model files mnm fetches."""
+    found = []
+    for approval in approvals:
+        row = vetted_row(approval)
+        for weight in row.weights if row else ():
+            need = ModelNeed(name=weight.name, folder=weights_folder(approval.pack), url=weight.url)
+            found.append(Status(need, Where.FETCHABLE, weight.name, parse_source(weight.url)))
+    return found
+
+
+def missing_weights(models: Models, approvals: list[Approval]) -> list[Status]:
+    """The packs' weights not linked yet."""
+    wanted = pack_weights(approvals)
+    have = {(item.folder, item.name) for item in models.ledger().links}
+    return [s for s in wanted if (s.need.folder, s.link) not in have]

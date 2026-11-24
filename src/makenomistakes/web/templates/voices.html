@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% set tab = "system" %}
+{% block title %}Voices · makenomistakes{% endblock %}
+{% block subtabs %}{% include "_system_tabs.html" %}{% endblock %}
+{% block body %}
+<section class="panel double" aria-labelledby="vl-title">
+  <h1 class="panel-title" id="vl-title">Voice library <span class="hint">mnm voices add · ls · show · consent · rm</span></h1>
+  <p class="hint">The voices a song's vocals may be sung in: your own, a generated one, or someone's you have the rights to. A row keeps its files by sha256 and, for someone else's voice, a consent document's hash and date; mnm never keeps the document, and never refuses a song for a missing one: the export's disclosure says so.</p>
+  {% for problem in problems %}<p class="warnline">{{ problem }}</p>{% endfor %}
+  {% if rows %}
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>Voice</th><th>Engine</th><th>Source</th><th>Consent</th><th>Files</th><th>Action</th></tr></thead>
+    <tbody>{% for row, missing in rows %}<tr>
+      <td data-label="Voice" class="hi">{{ row.name }}{% if row.note %} <span class="hint">{{ row.note }}</span>{% endif %}</td>
+      <td data-label="Engine">{{ engine_words[row.engine] }}</td>
+      <td data-label="Source">{{ source_words[row.source] }}{% if row.licence %} <span class="hint">· {{ row.licence }}</span>{% endif %}</td>
+      <td data-label="Consent">{% if row.consent %}recorded {{ row.consent.date }} <span class="hint">sha256 {{ row.consent.sha256[:12] }}…</span>{% elif row.source in needs_consent %}<span class="warnline">none recorded</span>
+        <form class="inline" method="post" action="/system/voices/{{ row.name }}/consent" enctype="multipart/form-data"><label>Document <input type="file" name="document" required></label> <button class="btn">Record its hash</button></form>{% else %}<span class="dim">not needed</span>{% endif %}</td>
+      <td data-label="Files">{% if missing %}<span class="warnline">missing: {{ missing | join(", ") }}</span>{% else %}{% for f in row.files %}{{ f.role }} <span class="hint">{{ f.sha256[:12] }}…</span>{% if not loop.last %} · {% endif %}{% endfor %}{% endif %}</td>
+      <td data-label="Action"><form class="inline" method="post" action="/system/voices/{{ row.name }}/rm" onsubmit='return confirm({{ ("Remove the voice " ~ row.name ~ " and its files?") | tojson }})'><button class="btn danger">Remove</button></form></td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}
+  <p>No voices yet. A song is sung by the song model's own voice until you add one here and pick it on the song's page.</p>
+  {% endif %}
+</section>
+
+<section class="panel double" aria-labelledby="va-title">
+  <h2 class="panel-title" id="va-title">Add a voice</h2>
+  <p class="hint">Seed-VC and Vevo2 sing from 1 to 30 s of the voice alone (a WAV file); RVC from a checkpoint (<code>.pth</code>) and its retrieval index. audio.cpp's packaged RVC voices are not offered: whose they are is not published.</p>
+  <form method="post" action="/system/voices" enctype="multipart/form-data" class="stack tight">
+    <div class="role-grid">
+      <label>Name <input type="text" name="name" required maxlength="64" pattern="[a-z0-9][a-z0-9._\-]*" title="lower-case letters, digits, '.', '_' and '-'" placeholder="alto"></label>
+      <label>Engine <select name="engine">{% for value, words in engines %}<option value="{{ value }}"{% if value == "seed_vc" %} selected{% endif %}>{{ words }}</option>{% endfor %}</select></label>
+      <label>Whose voice <select name="source" required><option value="">choose…</option>{% for value, words in sources %}<option value="{{ value }}">{{ words }}</option>{% endfor %}</select></label>
+    </div>
+    <div class="role-grid">
+      <label>Reference recording <span class="hint">(Seed-VC, Vevo2, SoulX)</span><input type="file" name="reference" accept=".wav,audio/wav"></label>
+      <label>RVC checkpoint <input type="file" name="model" accept=".pth,.pt"></label>
+      <label>RVC index <span class="hint">(optional)</span><input type="file" name="index" accept=".index"></label>
+    </div>
+    <label>Terms <span class="hint">(optional: what you use it under, in your words)</span> <input type="text" name="licence" maxlength="400" class="wide"></label>
+    <label>Note <span class="hint">(optional)</span> <input type="text" name="note" maxlength="400" class="wide"></label>
+    <div><button class="btn primary">Add the voice</button></div>
+  </form>
+</section>
+{% endblock %}

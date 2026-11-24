@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% set tab = "add" %}
+{% block title %}Add model · makenomistakes{% endblock %}
+{% block subtabs %}<a href="/add" aria-current="page">Add model</a><a href="/starter">Get started</a>{% endblock %}
+{% block body %}
+<section class="panel double" aria-labelledby="add-title">
+  <h1 class="panel-title" id="add-title">Add a model</h1>
+  <form method="post" action="/add/plan" class="stack tight">
+    <div class="prompt"><input class="wide" type="text" name="reference" value="{{ reference }}" placeholder="Paste a Hugging Face, Civitai or LM Studio link, or org/name (unsloth/Qwen3-8B-GGUF)" required aria-label="Model link"></div>
+    <div class="row"><button class="btn primary">Check fit</button> <span class="hint">Reads the model's header remotely; nothing is downloaded yet. Civitai: paste the model page's address (<code>civitai.com/models/12345/name?modelVersionId=67890</code>).</span></div>
+    <details{% if vram %} open{% endif %}><summary>What if: plan for another amount of free VRAM (like <code>mnm fit --vram</code>, with this machine's RAM and GPU)</summary>
+      <p class="row"><label>Free VRAM <input type="number" name="vram" min="0.5" max="200" step="0.5" value="{{ vram if vram else '' }}" placeholder="GiB" inputmode="decimal"> GiB</label>
+      <span class="hint">Empty: this card as it is now, with mnm's running instances counted as free.</span></p>
+    </details>
+  </form>
+  {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
+</section>
+{% include "_guidance.html" %}
+<section class="panel double" aria-labelledby="what-title">
+  <h2 class="panel-title" id="what-title">Find a model</h2>
+  <form method="get" action="/add/what" class="row">
+    <input type="search" name="q" value="{{ what_q or '' }}" placeholder="qwen3 coder, flux, whisper (or nothing, with a use: its curated models)" aria-label="What to look for">
+    <select name="use" aria-label="Use"><option value="">any type</option>{% for u in what_uses %}<option value="{{ u.value }}" {% if u.value == what_use %}selected{% endif %}>{{ u.value }}</option>{% endfor %}</select>
+    <button class="btn">Find</button>
+    <span class="hint">Like <code>mnm what</code>: the curated picks first, then Hugging Face's, Civitai's and Ollama's own order, each graded against this box. Nothing downloads; it takes a few seconds.</span>
+  </form>
+  {% if what_error %}<div class="error" role="alert">{{ what_error }}</div>{% endif %}
+  {% if found %}
+  {% for note in found.notes %}<div class="warnline">{{ note }}</div>{% endfor %}
+  {% if found.rows %}
+  <div class="table-scroll"><table class="what"><thead><tr><th>Model</th><th>From</th><th>Downloads</th><th>Fits</th><th>Speed</th><th>Needs</th><th><span class="sr-only">Plan</span></th></tr></thead><tbody>
+  {% for row in found.rows %}
+    <tr><td>{{ row.title }}{% if row.size %} <span class="dim">{{ row.size }}</span>{% endif %}{% if row.title != row.hit.shown %}<br><span class="hint">{{ row.hit.shown }}</span>{% endif %}{% if row.hit.why %}<br><span class="hint">{{ row.hit.why }}</span>{% endif %}</td>
+      <td>{{ row.hit.source.value }}</td><td>{{ "{:,}".format(row.hit.downloads) if row.hit.downloads is not none else "" }}</td>
+      {% if row.pick %}{% set b = fit_badge(row.pick.fit.level) %}<td><span class="{{ b.css }}"><span class="g" aria-hidden="true">{{ b.glyph }}</span>{{ b.word }}</span> {{ row.pick.quant }}{% if row.smaller %} ({{ row.verdict.value }}){% endif %}</td>
+      <td>{{ row.pick.speed_summary }}</td><td>{{ row.pick.vram_words }}</td>
+      <td><a class="btn" href="{{ row.plan_href }}">Plan it</a></td>
+      {% else %}<td colspan="4" class="dim"><b>{{ row.verdict.value }}</b>: {{ row.refusal }}</td>{% endif %}</tr>
+  {% endfor %}
+  </tbody></table></div>
+  {% if found.left_out %}<p class="hint">{{ found.left_out }} of another type left out (pick a use to see only that type).</p>{% endif %}
+  {% else %}<p class="hint">Nothing found: other words, or a use with no words for its curated models.</p>{% endif %}
+  {% endif %}
+</section>
+{% if plan %}
+{% if plan.facts.versions %}
+<section class="panel" aria-labelledby="ver-title">
+  <h2 class="panel-title" id="ver-title">Version</h2>
+  <form method="post" action="/add/plan" class="row">
+    <input type="hidden" name="reference" value="{{ reference }}">{% if vram %}<input type="hidden" name="vram" value="{{ vram }}">{% endif %}
+    <select name="version" aria-label="Version">{% for label in plan.facts.versions %}<option value="{{ label }}" {% if label == plan.facts.version %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    <button class="btn">Plan this version</button> <span class="hint">This repo holds {{ plan.facts.versions|length }} versions; the newest is planned unless you pick one.</span>
+  </form>
+</section>
+{% endif %}
+<section class="panel double" aria-labelledby="plan-title">
+  <h2 class="panel-title" id="plan-title">{{ plan.facts.display_name }}</h2>
+  {% if plan.facts.via %}<p class="hint">{{ plan.facts.via }}</p>{% endif %}
+  <p class="dim">{{ plan.facts.modality.label }}{% if plan.header %} · {{ plan.header.architecture }} · {{ plan.header.block_count }} layers · native context {{ "{:,}".format(plan.header.context_length or 0) }}{% endif %}{% if plan.facts.projector_files %} · vision{% endif %}{% if plan.kit %} · {{ plan.image_summary }}{% endif %}{% if plan.facts.engine.value == 'whispercpp' %} · whisper.cpp, sizes: {% for v in plan.facts.gguf_variants %}{{ v.quant }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}{% if plan.facts.engine.value == 'audiocpp' %} · audio.cpp, files: {% for v in plan.facts.gguf_variants %}{{ v.quant }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}</p>
+  <p class="hint">{% if vram %}<b class="hi">What if:</b> planned for {{ vram }} GiB free VRAM, not this card as it is now.{% elif pool %}Budget: {{ pool }}{{ backend }}.{% else %}Budget: {{ gib(plan.budget.card_free_bytes) }} free VRAM{% if plan.budget.vram_total_bytes %} of {{ gib(plan.budget.vram_total_bytes) }} ({{ gib(plan.budget.vram_used_bytes + plan.budget.held_bytes) }} in use right now{% if plan.budget.held_by %}, {{ gib(plan.budget.held_bytes) }} of it mnm's{% endif %}){% endif %}, {{ gib(plan.budget.ram_free_bytes) }} free RAM{{ backend }}.{% endif %}{% if plan.budget.spill_words and not vram %} {{ plan.budget.spill_words | ticks }}{% endif %}{% if plan.budget.correction_note %} Calibration: {{ plan.budget.correction_note }}.{% endif %}</p>
+  {% for line in device_notes or [] %}<p class="hint">{{ line | ticks }}</p>{% endfor %}
+  {% if busy_note %}<div class="warnline">{{ busy_note | ticks }}</div>{% endif %}
+  {% if vram_holders %}<div class="warnline"><strong>Planned as if {{ vram_holders|join(", ") }} were stopped</strong> (the VRAM they hold counts as free): stop them before starting this one, or run them together in a set, which checks the fit.</div>{% endif %}
+  <p class="hint">{% if plan.speed_note %}Calibration: {{ plan.speed_note }}.{% elif plan.kit %}Image estimates are uncalibrated until the first measured run.{% elif plan.facts.engine.value == 'whispercpp' %}Speech-to-text buffers are measured on a CPU build; the CUDA total is checked on the first run.{% elif plan.facts.engine.value == 'audiocpp' %}Voice buffers are measured on a CPU build; the CUDA total is checked on the first run. Voice, speed and seed are settings on the instance page after adding.{% endif %}
+    {% if plan.facts.supports_tools %}Tool calling declared.{% endif %} {% if plan.facts.reasoning_hint %}Thinking model.{% endif %} {% if plan.facts.gated %}<span class="st st-inv">Gated repo: needs HF_TOKEN.</span>{% endif %}</p>
+  {% if other_types %}<p class="hint">Type: <strong class="hi">{{ plan.facts.modality.label }}</strong>.
+    {% for t in other_types %}<a href="/add?reference={{ reference | urlencode }}&version={{ (plan.facts.version or '') | urlencode }}&type={{ t.value }}&plan=1">Add it as {{ t.label }}</a>{% if not loop.last %} · {% endif %}{% endfor %}
+    {% if model_type %}(<a href="/add?reference={{ reference | urlencode }}&version={{ (plan.facts.version or '') | urlencode }}&type=&plan=1">its own type</a>){% endif %}</p>{% endif %}
+  <details><summary>Files and quants (<code>mnm resolve</code>)</summary>
+    <dl class="kv">
+      <dt>Repo</dt><dd><a href="{{ repo_page(plan.facts.repo_id, plan.facts.revision) }}" target="_blank" rel="noopener">{{ plan.facts.repo_id }}</a> @ {{ plan.facts.revision }}</dd>
+      <dt>Format</dt><dd>{{ plan.facts.format.value }}{% if plan.facts.architecture %} · {{ plan.facts.architecture }}{% endif %}{% if plan.facts.params_b %} · {{ "%.2f" | format(plan.facts.params_b) }} B parameters{% endif %}</dd>
+      <dt>Template</dt><dd>{{ "chat template" if plan.facts.has_chat_template else "no chat template" }} · tools {{ "declared" if plan.facts.supports_tools else "not declared" }}</dd>
+      <dt>License</dt><dd>{{ plan.facts.license or "?" }}{% if plan.facts.base_model %} · base {{ plan.facts.base_model }}{% endif %}</dd>
+      <dt>Whole repo</dt><dd>{{ gib(plan.facts.total_bytes) }} (only the chosen quant downloads)</dd>
+      {% if plan.facts.projector_files %}<dt>Vision</dt><dd>{{ plan.facts.projector_files | join(", ") }}</dd>{% endif %}
+    </dl>
+    {% if plan.quant_choices %}<div class="table-scroll"><table><thead><tr><th>Quant</th><th>Download</th></tr></thead><tbody>{% for quant, size in plan.quant_choices %}<tr><td>{{ quant }}</td><td>{{ gib(size) if size else "?" }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+  </details>
+  <form method="post" action="/add/create" class="stack tight mt">
+    <input type="hidden" name="reference" value="{{ reference }}">
+    <input type="hidden" name="version" value="{{ plan.facts.version or '' }}">
+    <input type="hidden" name="type" value="{{ model_type }}">
+    {% if vram %}<input type="hidden" name="vram" value="{{ vram }}">{% endif %}
+    <fieldset class="plain"><legend class="sr-only">Profile</legend>
+    {% for p in profiles %}
+    <label class="radio"><input type="radio" name="profile" value="{{ p.name.value }}" {% if p.name.value == 'balanced' %}checked{% endif %}>
+      <span class="pname">{{ p.name.value|capitalize }}</span> {{ p.quant }}, {{ p.settings_summary }} · {% if p.ram_bytes %}{{ p.vram_words }}{% else %}{{ gib(p.estimate.total_bytes) }} VRAM{% endif %} ·
+      {% set b = fit_badge(p.fit.level) %}<span class="{{ b.css }}"><span class="g" aria-hidden="true">{{ b.glyph }}</span>{{ b.word }}</span>{% if p.fit.cpu_moe_layers and plan.header %} (experts of {{ p.fit.cpu_moe_layers }}/{{ plan.header.block_count }} layers in RAM){% elif p.fit.level != FitLevel.COMFORTABLE and plan.header %} ({{ p.fit.gpu_layers }}/{{ plan.header.block_count }} layers on GPU){% endif %}
+      · {{ p.speed_summary }} · downloads {{ gib(p.download_bytes) }}<br><span class="hint">{{ p.why }}</span></label>
+    {% endfor %}
+    </fieldset>
+    <details{% if preset.quant %} open{% endif %}><summary>Advanced: override quant{% if plan.header %} / context / KV{% endif %}</summary>
+      <p class="row">Quant <select name="quant" aria-label="Quant"><option value="">(profile's)</option>{% for quant, size in plan.quant_choices %}<option value="{{ quant }}" {% if quant == preset.quant %}selected{% endif %}>{{ quant }}{% if size %} · {{ gib(size) }}{% endif %}</option>{% endfor %}</select>
+         {% if plan.header %}<label>Context <input type="number" name="ctx" min="512" step="512" placeholder="(profile's)" inputmode="numeric"></label>
+         <label>KV <select name="kv"><option value="">(profile's)</option>{% for k in kv_types %}<option value="{{ k }}">{{ k }}</option>{% endfor %}</select></label>{% elif plan.kit %}<span class="hint">Resolution, steps and guidance are settings on the instance page after adding.</span>{% elif plan.facts.engine.value == 'audiocpp' %}<span class="hint">The quant above picks the file; voice, speed and seed are settings on the instance page after adding.</span>{% else %}<span class="hint">Language and threads are settings on the instance page after adding; the size is the quant above.</span>{% endif %}</p>
+    </details>
+    <div class="stack tighter">
+      {% if agent_ctx %}<label class="check"><input type="checkbox" name="for_agents" value="true" {% if preset.agents %}checked{% endif %}> For coding agents (<code>--for-agents</code>): type Coding, context <b class="hi">{{ "{:,}".format(agent_ctx) }}</b> (Claude Code, Codex, OpenCode send their instructions and tools with every request; GUIDE §11)</label>
+      <label>Or for one client <span class="hint">(<code>--for</code>: its own floor a request)</span> <select name="client"><option value="">the busiest of them</option>{% for key, f in agent_floors.items() %}<option value="{{ key }}">{{ f.label }}: {{ "{:,}".format(f.tokens) }}</option>{% endfor %}</select></label>{% endif %}
+      {% if plan.kit and not plan.kit.is_video %}<label class="check"><input type="checkbox" name="upscaler" value="true" checked> Add the ESRGAN upscaler (18 MB): the engine page's upscale step and <code>/sdcpp/v1/upscale</code></label>{% endif %}
+      <label class="check"><input type="checkbox" name="no_download" value="true"> Save without downloading (<code>--no-download</code>): Start downloads the files later</label>
+    </div>
+    <p class="row"><label>Instance name <input type="text" name="name" value="{{ default_name }}" pattern="[a-z0-9][a-z0-9\-]*" required></label> <button class="btn primary">Add and download</button> <span class="hint">(only saves it with <em>Save without downloading</em>)</span></p>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,45 @@
+{# The Test it panel: `mnm try` from the page. The request is the card's own, so a pass
+   means the card works as printed. #}
+{% from "_macros.html" import figures %}
+{% set m = recipe.modality.value %}{% set shown = try_result(recipe.name) %}
+<section class="tabpanel panel" id="test" data-tabpanel aria-labelledby="test-title">
+  <h2 class="panel-title" id="test-title">Test it <span class="hint">mnm try</span></h2>
+  <p class="hint">Sends the request the curl card shows, through the router{% if not status.running %} (which loads it first: {{ "seconds to minutes" if m in ("image_gen", "image_edit", "video") else "a few seconds" }}){% endif %}, and shows what came back.</p>
+  <div class="test-grid">
+  <form method="post" action="/instances/{{ recipe.name }}/try" enctype="multipart/form-data" class="stack tight">
+    {% if m in ("chat", "coding", "vision_chat") %}
+    <label class="check"><input type="checkbox" name="speed" value="true"> Speed: ask for 400 tokens and report tok/s (<code>--speed</code>)</label>
+    <label class="check"><input type="checkbox" name="tools" value="true"> Tools: the tool-call test an agent depends on, five requests instead of the card's (<code>--tools</code>)</label>
+    {% elif m == "image_gen" %}
+    <label>Picture to repaint <span class="hint">(optional: without one it draws the card's prompt)</span><br><input type="file" name="image" accept="image/*"></label>
+    <label>Mask <span class="hint">(optional, with a picture: white is redrawn, black kept)</span><br><input type="file" name="mask" accept="image/*"></label>
+    {% elif m == "image_edit" %}
+    <label>Picture to edit <span class="hint">(optional: a grey square otherwise)</span><br><input type="file" name="image" accept="image/*"></label>
+    {% elif m == "video" %}
+    <label>First frame <span class="hint">(optional: image-to-video; text-to-video otherwise)</span><br><input type="file" name="image" accept="image/*"></label>
+    {% elif m == "speech_to_text" %}
+    <label>Clip to transcribe <span class="hint">(WAV, MP3, FLAC…, up to 32 MiB)</span><br><input type="file" name="audio" accept="audio/*" required></label>
+    {% elif m == "text_to_speech" %}
+    <label for="say">Sentence to read <span class="hint">(empty: the card's)</span></label><input type="text" id="say" name="say" class="wide" maxlength="600" placeholder="Hello from makenomistakes.">
+    {% endif %}
+    <label class="check"><input type="checkbox" name="measure" value="true"> Measure GPU memory every 0.25 s (<code>--measure</code>)</label>
+    <div><button class="btn primary">Send</button></div>
+  </form>
+  <div class="test-result" aria-live="polite">
+  {% if try_job and try_job.state != JobState.DONE %}{% with job = try_job %}{% include "_job.html" %}{% endwith %}{% endif %}
+  {% if shown and (not try_job or try_job.state == JobState.DONE) %}
+  {% if try_job %}<p class="hint">Last run {{ try_job.ago() }}.</p>{% endif %}
+  {{ figures(shown) }}
+  <p class="hi" data-type>{{ shown.answer }}</p>
+  {% if shown.steps %}<ul class="hint">{% for line in shown.steps %}<li>{{ line }}</li>{% endfor %}</ul>{% endif %}
+  {% if shown.vram_line %}<p class="hint">{{ shown.vram_line }}</p>{% endif %}
+  {% if shown.kind %}<div class="media">
+    {% if shown.kind == "image" %}<img src="/instances/{{ recipe.name }}/try/media" alt="What {{ recipe.name }} drew">
+    {% elif shown.kind == "video" %}<video src="/instances/{{ recipe.name }}/try/media" controls loop muted playsinline></video>
+    {% elif shown.kind == "audio" %}<audio src="/instances/{{ recipe.name }}/try/media" controls></audio>{% endif %}
+  </div>{% endif %}
+  {% elif not try_job %}<p class="hint">{{ try_shows(recipe.modality) }}</p>
+  {% endif %}
+  </div>
+  </div>
+</section>

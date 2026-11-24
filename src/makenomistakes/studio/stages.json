@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "stages": [
+    {
+      "stage": "song",
+      "kind": "generate",
+      "label": "Song",
+      "host": "audiocpp",
+      "fit_model": "ace_step",
+      "tiers": {
+        "fast": {
+          "packages": [
+            {"repo": "audio-cpp/audio.cpp-gguf", "folder": "ACE-Step1.5-GGUF/turbo", "quant": "Q8_0"}
+          ],
+          "options": {"kind": "ace_step", "route": "text2music", "duration": 30.0}
+        },
+        "full": {
+          "packages": [
+            {"repo": "audio-cpp/audio.cpp-gguf", "folder": "ACE-Step1.5-GGUF/base", "quant": "Q8_0"}
+          ],
+          "options": {"kind": "ace_step", "route": "text2music", "duration": 180.0, "steps": 50}
+        }
+      },
+      "fields": [
+        {"name": "tags", "kind": "text"},
+        {"name": "lyrics", "kind": "text"},
+        {"name": "duration", "kind": "seconds", "min": 10, "max": 600, "default": 30}
+      ],
+      "inputs": ["tags", "lyrics"],
+      "outputs": ["mix"],
+      "licence": "MIT",
+      "commercial": "yes",
+      "source": {"url": "https://huggingface.co/audio-cpp/audio.cpp-gguf", "date": "2026-10-31"}
+    },
+    {
+      "stage": "score",
+      "kind": "score",
+      "label": "Score",
+      "host": "tool",
+      "tiers": {"fast": {"tool": "score"}, "full": {"tool": "score"}},
+      "fields": [],
+      "inputs": ["mix"],
+      "outputs": ["score"],
+      "licence": "CC-BY-4.0 (Audiobox Aesthetics, code and checkpoint; its WavLM part MIT)",
+      "commercial": "yes",
+      "source": {"url": "https://huggingface.co/facebook/audiobox-aesthetics", "date": "2026-10-31"}
+    },
+    {
+      "stage": "structure",
+      "kind": "tool",
+      "label": "Structure",
+      "host": "tool",
+      "tiers": {"fast": {"tool": "structure"}, "full": {"tool": "structure"}},
+      "fields": [],
+      "inputs": ["mix"],
+      "outputs": ["structure"],
+      "licence": "MIT (Beat This!, code and checkpoints); ISC (librosa)",
+      "commercial": "yes",
+      "source": {"url": "https://pypi.org/project/beat-this/", "date": "2026-10-31"}
+    },
+    {
+      "stage": "stems",
+      "kind": "separate",
+      "label": "Stems",
+      "host": "audiocpp",
+      "fit_model": "htdemucs_6stems",
+      "tiers": {
+        "fast": {
+          "packages": [
+            {"repo": "audio-cpp/audio.cpp-gguf", "folder": "HTDemucs-6stems-GGUF", "quant": "Q8_0", "gives": ["stem:drums", "stem:bass", "stem:other", "stem:vocals", "stem:guitar", "stem:piano"]}
+          ]
+        },
+        "full": {
+          "packages": [
+            {"repo": "audio-cpp/audio.cpp-gguf", "folder": "BS-RoFormer-ep368-GGUF", "quant": "Q8_0", "gives": ["stem:vocals"]},
+            {"repo": "audio-cpp/audio.cpp-gguf", "folder": "HTDemucs-6stems-GGUF", "quant": "Q8_0", "gives": ["stem:drums", "stem:bass", "stem:other", "stem:guitar", "stem:piano"]}
+          ]
+        }
+      },
+      "fields": [],
+      "inputs": ["mix"],
+      "outputs": ["stem:vocals", "stem:drums", "stem:bass", "stem:other", "stem:guitar", "stem:piano"],
+      "licence": "MIT (HTDemucs); Apache-2.0, checkpoint source undocumented (BS-RoFormer ep368)",
+      "commercial": "unclear",
+      "source": {"url": "https://huggingface.co/audio-cpp/audio.cpp-gguf", "date": "2026-10-31"}
+    },
+    {
+      "stage": "voice",
+      "kind": "convert",
+      "label": "Voice",
+      "host": "audiocpp",
+      "fit_model": "seed_vc",
+      "tiers": {
+        "fast": {
+          "packages": [
+            {"repo": "audio-cpp/audio.cpp-gguf", "folder": "SeedVC-MLX-GGUF", "quant": "Q8_0"}
+          ]
+        },
+        "full": {
+          "packages": [
+            {"repo": "audio-cpp/audio.cpp-gguf", "folder": "SeedVC-MLX-GGUF", "quant": "F16"}
+          ]
+        }
+      },
+      "fields": [
+        {"name": "voice", "kind": "choice"},
+        {"name": "semitone_shift", "kind": "semitones", "min": -12, "max": 12, "default": 0}
+      ],
+      "inputs": ["stem:vocals", "reference"],
+      "outputs": ["stem:vocals"],
+      "licence": "GPL-3.0 (Seed-VC; RVC MIT, Vevo2 CC-BY-NC-ND-4.0 when a voice's engine names them)",
+      "commercial": "yes",
+      "source": {"url": "https://huggingface.co/audio-cpp/audio.cpp-gguf/tree/main/SeedVC-MLX-GGUF", "date": "2026-10-31"}
+    },
+    {
+      "stage": "midi",
+      "kind": "transcribe",
+      "label": "MIDI",
+      "host": "tool",
+      "tiers": {"fast": {"tool": "midi"}, "full": {"tool": "midi"}},
+      "pickable": ["muscriptor", "sheetsage2"],
+      "fields": [],
+      "inputs": ["stems"],
+      "outputs": ["midi"],
+      "licence": "Apache-2.0 (Basic Pitch, code and its ONNX model); a MuScriptor or SheetSage2 instance picked instead is CC-BY-NC-4.0",
+      "commercial": "yes",
+      "source": {"url": "https://pypi.org/project/basic-pitch/", "date": "2026-11-01"}
+    },
+    {
+      "stage": "edit",
+      "kind": "edit",
+      "label": "Edits",
+      "host": "audiocpp",
+      "fit_model": "ace_step",
+      "tiers": {
+        "fast": {
+          "packages": [
+            {"repo": "audio-cpp/audio.cpp-gguf", "folder": "ACE-Step1.5-GGUF/turbo", "quant": "Q8_0"}
+          ]
+        },
+        "full": {
+          "packages": [
+            {"repo": "audio-cpp/audio.cpp-gguf", "folder": "ACE-Step1.5-GGUF/base", "quant": "Q8_0"}
+          ]
+        }
+      },
+      "fields": [],
+      "inputs": ["mix"],
+      "outputs": ["mix"],
+      "licence": "MIT",
+      "commercial": "yes",
+      "source": {"url": "https://huggingface.co/audio-cpp/audio.cpp-gguf", "date": "2026-10-31"}
+    }
+  ]
+}

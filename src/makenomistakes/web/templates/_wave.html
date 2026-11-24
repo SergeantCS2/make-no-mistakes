@@ -1,0 +1,11 @@
+{# A file's waveform: an inline SVG from its measured peaks, stretched to the width;
+   a click plays the player `audio_id` from there (mnm.js; the player does it without). With
+   `ranges` (forms' ids) the click also fills those forms' start, then their end. #}
+{% macro wave(w, audio_id, ranges="") -%}
+{% if w %}<svg class="wave" viewBox="0 0 {{ w.bars }} 64" preserveAspectRatio="none" role="img" aria-label="Waveform, {{ "%.0f" | format(w.seconds) }} s; a click plays from there{% if ranges %} and sets a range{% endif %}" data-audio="{{ audio_id }}" data-seconds="{{ w.seconds }}"{% if ranges %} data-ranges="{{ ranges }}"{% endif %}><path d="{{ w.path }}"/></svg>{% endif %}
+{%- endmacro %}
+
+{# The take's parts under its waveform: a band per part, as wide as it lasts. #}
+{% macro parts_bar(structure) -%}
+{% if structure.sections and structure.duration %}<div class="parts" role="group" aria-label="Parts of the song">{% for part in structure.sections %}<span class="part part-{{ part.label | lower }}" style="flex-grow: {{ "%.3f" | format(part.end - part.start) }}" title="Part {{ part.label }}, {{ "%.0f" | format(part.start) }} to {{ "%.0f" | format(part.end) }} s">{{ part.label }}</span>{% endfor %}</div>{% endif %}
+{%- endmacro %}

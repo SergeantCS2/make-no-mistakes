@@ -1,0 +1,2 @@
+{% set here = request.url.path %}
+{% for path, label in (("/system", "Overview"), ("/system/engines", "Engines"), ("/system/calibration", "Calibration"), ("/system/machine", "Machine"), ("/system/disk", "Disk"), ("/doctor", "Doctor"), ("/system/backup", "Backup"), ("/system/nightly", "Nightly"), ("/system/comfyui", "ComfyUI"), ("/system/studio", "Studio"), ("/system/voices", "Voices"), ("/system/trainer", "Trainer"), ("/system/apps", "Apps")) %}<a href="{{ path }}"{% if here == path %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}

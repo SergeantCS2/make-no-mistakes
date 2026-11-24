@@ -1,0 +1,4518 @@
+[
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 3060"
+  ],
+  "uniqueUsers": 26589,
+  "brand": "NVIDIA",
+  "memory": "12GB",
+  "memoryGb": [
+   12,
+   8
+  ],
+  "tflops": 12.74,
+  "powerW": 170,
+  "msrpUsd": 350,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 3090"
+  ],
+  "uniqueUsers": 21335,
+  "brand": "NVIDIA",
+  "memory": "24GB",
+  "memoryGb": [
+   24
+  ],
+  "tflops": 35.58,
+  "powerW": 350,
+  "msrpUsd": 1500,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "Apple Silicon",
+   "-",
+   "Apple M4"
+  ],
+  "uniqueUsers": 21047,
+  "brand": "Apple",
+  "memory": "16-32GB",
+  "memoryGb": [
+   16,
+   24,
+   32
+  ],
+  "tflops": 4.6,
+  "powerW": 22,
+  "msrpUsd": 1600,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 5090"
+  ],
+  "uniqueUsers": 19700,
+  "brand": "NVIDIA",
+  "memory": "32GB",
+  "memoryGb": [
+   32
+  ],
+  "tflops": 104.8,
+  "powerW": 575,
+  "msrpUsd": 2000,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 4090"
+  ],
+  "uniqueUsers": 19145,
+  "brand": "NVIDIA",
+  "memory": "24GB",
+  "memoryGb": [
+   24
+  ],
+  "tflops": 82.58,
+  "powerW": 450,
+  "msrpUsd": 1600,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "Apple Silicon",
+   "-",
+   "Apple M4 Pro"
+  ],
+  "uniqueUsers": 17952,
+  "brand": "Apple",
+  "memory": "24-64GB",
+  "memoryGb": [
+   24,
+   48,
+   64
+  ],
+  "tflops": 9.2,
+  "powerW": 45,
+  "msrpUsd": 2600,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 5070 Ti"
+  ],
+  "uniqueUsers": 17382,
+  "brand": "NVIDIA",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 43.94,
+  "powerW": 300,
+  "msrpUsd": 750,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 5060 Ti"
+  ],
+  "uniqueUsers": 17228,
+  "brand": "NVIDIA",
+  "memory": "16GB",
+  "memoryGb": [
+   16,
+   8
+  ],
+  "tflops": 23.7,
+  "powerW": 180,
+  "msrpUsd": 450,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "Ryzen Zen 5 9000 (Ryzen 9)"
+  ],
+  "uniqueUsers": 13636,
+  "brand": "AMD",
+  "tflops": 0.56,
+  "powerW": 230,
+  "msrpUsd": 650,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "Ryzen Zen 3 5000 (Ryzen 7)"
+  ],
+  "uniqueUsers": 13495,
+  "brand": "AMD",
+  "tflops": 1.33,
+  "powerW": 142,
+  "msrpUsd": 450,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "Ryzen Zen 4 7000 (Ryzen 7)"
+  ],
+  "uniqueUsers": 12886,
+  "brand": "AMD",
+  "tflops": 0.56,
+  "powerW": 142,
+  "msrpUsd": 400,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 5080"
+  ],
+  "uniqueUsers": 12352,
+  "brand": "NVIDIA",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 56.28,
+  "powerW": 360,
+  "msrpUsd": 1000,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "Apple Silicon",
+   "-",
+   "Apple M1 Pro"
+  ],
+  "uniqueUsers": 12242,
+  "brand": "Apple",
+  "memory": "16-32GB",
+  "memoryGb": [
+   16,
+   24,
+   32
+  ],
+  "tflops": 5.2,
+  "powerW": 30,
+  "msrpUsd": 2900,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "Ryzen Zen 3 5000 (Ryzen 5)"
+  ],
+  "uniqueUsers": 12075,
+  "brand": "AMD",
+  "tflops": 0.72,
+  "powerW": 88,
+  "msrpUsd": 300,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Intel Core 13th Generation (i9)"
+  ],
+  "uniqueUsers": 12015,
+  "brand": "Intel",
+  "tflops": 0.85,
+  "powerW": 253,
+  "msrpUsd": 600,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "GB10"
+  ],
+  "uniqueUsers": 11743,
+  "brand": "NVIDIA",
+  "memory": "128GB",
+  "memoryGb": [
+   128
+  ],
+  "tflops": 29.71,
+  "powerW": 140,
+  "msrpUsd": 3999,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "Apple Silicon",
+   "-",
+   "Apple M1"
+  ],
+  "uniqueUsers": 11631,
+  "brand": "Apple",
+  "memory": "8-16GB",
+  "memoryGb": [
+   8,
+   16
+  ],
+  "tflops": 2.6,
+  "powerW": 15,
+  "msrpUsd": 1250,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "Apple Silicon",
+   "-",
+   "Apple M4 Max"
+  ],
+  "uniqueUsers": 11061,
+  "brand": "Apple",
+  "memory": "36-128GB",
+  "memoryGb": [
+   36,
+   48,
+   64,
+   128
+  ],
+  "tflops": 18.4,
+  "powerW": 100,
+  "msrpUsd": 5000,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Intel Core 12th Generation (i5)"
+  ],
+  "uniqueUsers": 10887,
+  "brand": "Intel",
+  "tflops": 0.65,
+  "powerW": 150,
+  "msrpUsd": 300,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Intel Core 13th Generation (i5)"
+  ],
+  "uniqueUsers": 10688,
+  "brand": "Intel",
+  "tflops": 0.68,
+  "powerW": 181,
+  "msrpUsd": 300,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Intel Core 13th Generation (i7)"
+  ],
+  "uniqueUsers": 10432,
+  "brand": "Intel",
+  "tflops": 0.82,
+  "powerW": 253,
+  "msrpUsd": 400,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 3080"
+  ],
+  "uniqueUsers": 10300,
+  "brand": "NVIDIA",
+  "memory": "12GB",
+  "memoryGb": [
+   12,
+   10
+  ],
+  "tflops": 30.6,
+  "powerW": 350,
+  "msrpUsd": 800,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Intel Core 10th Generation (i7)"
+  ],
+  "uniqueUsers": 9852,
+  "brand": "Intel",
+  "tflops": 0.46,
+  "powerW": 215,
+  "msrpUsd": 400,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 4060"
+  ],
+  "uniqueUsers": 9705,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 15.11,
+  "powerW": 115,
+  "msrpUsd": 300,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "Apple Silicon",
+   "-",
+   "Apple M5 Pro"
+  ],
+  "uniqueUsers": 9578,
+  "brand": "Apple",
+  "memory": "24-64GB",
+  "memoryGb": [
+   24,
+   36,
+   48,
+   64
+  ],
+  "tflops": 11.4,
+  "powerW": 50,
+  "msrpUsd": 2900,
+  "releaseYear": 2026
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "RX 9070 XT"
+  ],
+  "uniqueUsers": 9573,
+  "brand": "AMD",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 97.32,
+  "powerW": 304,
+  "msrpUsd": 600,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "Apple Silicon",
+   "-",
+   "Apple M1 Max"
+  ],
+  "uniqueUsers": 9130,
+  "brand": "Apple",
+  "memory": "16-64GB",
+  "memoryGb": [
+   16,
+   24,
+   32,
+   64
+  ],
+  "tflops": 10.4,
+  "powerW": 60,
+  "msrpUsd": 3900,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 3070"
+  ],
+  "uniqueUsers": 9104,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 20.31,
+  "powerW": 220,
+  "msrpUsd": 500,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Intel Core 14th Generation (i7)"
+  ],
+  "uniqueUsers": 9029,
+  "brand": "Intel",
+  "tflops": 0.8,
+  "powerW": 253,
+  "msrpUsd": 400,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Intel Core 10th Generation (i5)"
+  ],
+  "uniqueUsers": 8904,
+  "brand": "Intel",
+  "tflops": 0.46,
+  "powerW": 182,
+  "msrpUsd": 250,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "Apple Silicon",
+   "-",
+   "Apple M5 Max"
+  ],
+  "uniqueUsers": 8792,
+  "brand": "Apple",
+  "memory": "36-128GB",
+  "memoryGb": [
+   36,
+   48,
+   64,
+   128
+  ],
+  "tflops": 22.8,
+  "powerW": 110,
+  "msrpUsd": 5000,
+  "releaseYear": 2026
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Intel Core 12th Generation (i7)"
+  ],
+  "uniqueUsers": 8761,
+  "brand": "Intel",
+  "tflops": 0.77,
+  "powerW": 190,
+  "msrpUsd": 400,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "Ryzen Zen 5 9000 (Ryzen 7)"
+  ],
+  "uniqueUsers": 8629,
+  "brand": "AMD",
+  "tflops": 0.56,
+  "powerW": 88,
+  "msrpUsd": 350,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 4060 Ti"
+  ],
+  "uniqueUsers": 8617,
+  "brand": "NVIDIA",
+  "memory": "16GB",
+  "memoryGb": [
+   8,
+   16
+  ],
+  "tflops": 22.06,
+  "powerW": 165,
+  "msrpUsd": 500,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "Apple Silicon",
+   "-",
+   "Apple M5"
+  ],
+  "uniqueUsers": 8519,
+  "brand": "Apple",
+  "memory": "16-32GB",
+  "memoryGb": [
+   16,
+   24,
+   32
+  ],
+  "tflops": 5.7,
+  "powerW": 25,
+  "msrpUsd": 2000,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 4070"
+  ],
+  "uniqueUsers": 8422,
+  "brand": "NVIDIA",
+  "memory": "12GB",
+  "memoryGb": [
+   12
+  ],
+  "tflops": 29.15,
+  "powerW": 200,
+  "msrpUsd": 600,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 3050 Mobile"
+  ],
+  "uniqueUsers": 8392,
+  "brand": "NVIDIA",
+  "memory": "6GB",
+  "memoryGb": [
+   4,
+   6
+  ],
+  "tflops": 7.639,
+  "powerW": 95,
+  "msrpUsd": 250,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 5070"
+  ],
+  "uniqueUsers": 8195,
+  "brand": "NVIDIA",
+  "memory": "12GB",
+  "memoryGb": [
+   12
+  ],
+  "tflops": 30.84,
+  "powerW": 250,
+  "msrpUsd": 550,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "Ryzen Zen 4 7000 (Ryzen 9)"
+  ],
+  "uniqueUsers": 7962,
+  "brand": "AMD",
+  "tflops": 0.56,
+  "powerW": 230,
+  "msrpUsd": 700,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 4060 Laptop"
+  ],
+  "uniqueUsers": 7856,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 11.61,
+  "powerW": 115,
+  "msrpUsd": 300,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "Apple Silicon",
+   "-",
+   "Apple M3 Pro"
+  ],
+  "uniqueUsers": 7724,
+  "brand": "Apple",
+  "memory": "18-36GB",
+  "memoryGb": [
+   18,
+   36
+  ],
+  "tflops": 7.4,
+  "powerW": 40,
+  "msrpUsd": 2400,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "Ryzen Zen 3 5000 (Ryzen 9)"
+  ],
+  "uniqueUsers": 7682,
+  "brand": "AMD",
+  "tflops": 1.33,
+  "powerW": 142,
+  "msrpUsd": 800,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "Apple Silicon",
+   "-",
+   "Apple M2"
+  ],
+  "uniqueUsers": 7400,
+  "brand": "Apple",
+  "memory": "8-24GB",
+  "memoryGb": [
+   8,
+   16,
+   24
+  ],
+  "tflops": 3.6,
+  "powerW": 20,
+  "msrpUsd": 1500,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "Ryzen AI Max+ 395"
+  ],
+  "uniqueUsers": 7347,
+  "brand": "AMD",
+  "memory": "128GB",
+  "memoryGb": [
+   64,
+   96,
+   128
+  ],
+  "tflops": 29.7,
+  "powerW": 120,
+  "msrpUsd": 1500,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 3060 Ti"
+  ],
+  "uniqueUsers": 7339,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 16.2,
+  "powerW": 200,
+  "msrpUsd": 400,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 4070 Ti Super"
+  ],
+  "uniqueUsers": 6615,
+  "brand": "NVIDIA",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 44.1,
+  "powerW": 285,
+  "msrpUsd": 800,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "RX 7900 XTX"
+  ],
+  "uniqueUsers": 6574,
+  "brand": "AMD",
+  "memory": "24GB",
+  "memoryGb": [
+   24
+  ],
+  "tflops": 122.8,
+  "powerW": 355,
+  "msrpUsd": 1000,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "Apple Silicon",
+   "-",
+   "Apple M3 Max"
+  ],
+  "uniqueUsers": 6331,
+  "brand": "Apple",
+  "memory": "36-128GB",
+  "memoryGb": [
+   36,
+   48,
+   64,
+   96,
+   128
+  ],
+  "tflops": 14.2,
+  "powerW": 90,
+  "msrpUsd": 5000,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 4070 Super"
+  ],
+  "uniqueUsers": 5959,
+  "brand": "NVIDIA",
+  "memory": "12GB",
+  "memoryGb": [
+   12
+  ],
+  "tflops": 35.48,
+  "powerW": 220,
+  "msrpUsd": 600,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Intel Core 11th Generation (i7)"
+  ],
+  "uniqueUsers": 5868,
+  "brand": "Intel",
+  "tflops": 0.6,
+  "powerW": 251,
+  "msrpUsd": 400,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "GTX 1660"
+  ],
+  "uniqueUsers": 5727,
+  "brand": "NVIDIA",
+  "memory": "6GB",
+  "memoryGb": [
+   6
+  ],
+  "tflops": 10.05,
+  "powerW": 120,
+  "msrpUsd": 200,
+  "releaseYear": 2019
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "GTX 1650 Mobile"
+  ],
+  "uniqueUsers": 5701,
+  "brand": "NVIDIA",
+  "memory": "4GB",
+  "memoryGb": [
+   4
+  ],
+  "tflops": 6.39,
+  "powerW": 50,
+  "msrpUsd": 150,
+  "releaseYear": 2019
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Intel Core Ultra 7 265KF"
+  ],
+  "uniqueUsers": 5624,
+  "brand": "Intel",
+  "tflops": 1.53,
+  "powerW": 250,
+  "msrpUsd": 400,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 4070 Ti"
+  ],
+  "uniqueUsers": 5587,
+  "brand": "NVIDIA",
+  "memory": "12GB",
+  "memoryGb": [
+   12
+  ],
+  "tflops": 40.09,
+  "powerW": 285,
+  "msrpUsd": 800,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 4080"
+  ],
+  "uniqueUsers": 5574,
+  "brand": "NVIDIA",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 48.7,
+  "powerW": 320,
+  "msrpUsd": 1200,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "Apple Silicon",
+   "-",
+   "Apple M2 Pro"
+  ],
+  "uniqueUsers": 5554,
+  "brand": "Apple",
+  "memory": "16-32GB",
+  "memoryGb": [
+   16,
+   24,
+   32
+  ],
+  "tflops": 6.8,
+  "powerW": 35,
+  "msrpUsd": 2800,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "Ryzen Zen 4 7000 (Ryzen 5)"
+  ],
+  "uniqueUsers": 5543,
+  "brand": "AMD",
+  "tflops": 0.56,
+  "powerW": 142,
+  "msrpUsd": 300,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 4080 SUPER"
+  ],
+  "uniqueUsers": 5520,
+  "brand": "NVIDIA",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 52.2,
+  "powerW": 320,
+  "msrpUsd": 1000,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Intel Core 11th Generation (i5)"
+  ],
+  "uniqueUsers": 5361,
+  "brand": "Intel",
+  "tflops": 0.5,
+  "powerW": 251,
+  "msrpUsd": 250,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 3080 Ti"
+  ],
+  "uniqueUsers": 5303,
+  "brand": "NVIDIA",
+  "memory": "12GB",
+  "memoryGb": [
+   12
+  ],
+  "tflops": 34.1,
+  "powerW": 350,
+  "msrpUsd": 1200,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "Ryzen Zen 2 3000 (Ryzen 5)"
+  ],
+  "uniqueUsers": 5004,
+  "brand": "AMD",
+  "tflops": 0.72,
+  "powerW": 88,
+  "msrpUsd": 250,
+  "releaseYear": 2019
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 5060"
+  ],
+  "uniqueUsers": 4977,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 19.18,
+  "powerW": 150,
+  "msrpUsd": 300,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "Apple Silicon",
+   "-",
+   "Apple M3"
+  ],
+  "uniqueUsers": 4828,
+  "brand": "Apple",
+  "memory": "8-24GB",
+  "memoryGb": [
+   8,
+   16,
+   24
+  ],
+  "tflops": 4.1,
+  "powerW": 22,
+  "msrpUsd": 1500,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX PRO 6000 WS"
+  ],
+  "uniqueUsers": 4815,
+  "brand": "NVIDIA",
+  "memory": "96GB",
+  "memoryGb": [
+   96
+  ],
+  "tflops": 126,
+  "powerW": 600,
+  "msrpUsd": 8600,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "T4"
+  ],
+  "uniqueUsers": 4775,
+  "brand": "NVIDIA",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 65.13,
+  "powerW": 70,
+  "msrpUsd": 2000,
+  "releaseYear": 2018
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "H100"
+  ],
+  "uniqueUsers": 4718,
+  "brand": "NVIDIA",
+  "memory": "80GB",
+  "memoryGb": [
+   80
+  ],
+  "tflops": 267.6,
+  "powerW": 700,
+  "msrpUsd": 30000,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "Apple Silicon",
+   "-",
+   "Apple M2 Max"
+  ],
+  "uniqueUsers": 4617,
+  "brand": "Apple",
+  "memory": "32-96GB",
+  "memoryGb": [
+   32,
+   64,
+   96
+  ],
+  "tflops": 13.49,
+  "powerW": 80,
+  "msrpUsd": 4500,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "A100"
+  ],
+  "uniqueUsers": 4587,
+  "brand": "NVIDIA",
+  "memory": "80GB",
+  "memoryGb": [
+   80,
+   40
+  ],
+  "tflops": 77.97,
+  "powerW": 400,
+  "msrpUsd": 15000,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 4050 Laptop"
+  ],
+  "uniqueUsers": 4534,
+  "brand": "NVIDIA",
+  "memory": "6GB",
+  "memoryGb": [
+   6
+  ],
+  "tflops": 8.9,
+  "powerW": 115,
+  "msrpUsd": 250,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "GTX 1060"
+  ],
+  "uniqueUsers": 4470,
+  "brand": "NVIDIA",
+  "memory": "6GB",
+  "memoryGb": [
+   3,
+   6
+  ],
+  "tflops": 3.9,
+  "powerW": 120,
+  "msrpUsd": 300,
+  "releaseYear": 2016
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 3070 Ti"
+  ],
+  "uniqueUsers": 4294,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 21.75,
+  "powerW": 290,
+  "msrpUsd": 600,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "Apple Silicon",
+   "-",
+   "Apple M3 Ultra"
+  ],
+  "uniqueUsers": 4250,
+  "brand": "Apple",
+  "memory": "96-512GB",
+  "memoryGb": [
+   96,
+   256,
+   512
+  ],
+  "tflops": 28.4,
+  "powerW": 180,
+  "msrpUsd": 9500,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "V100"
+  ],
+  "uniqueUsers": 3839,
+  "brand": "NVIDIA",
+  "memory": "32GB",
+  "memoryGb": [
+   32,
+   16
+  ],
+  "tflops": 28.26,
+  "powerW": 300,
+  "msrpUsd": 10000,
+  "releaseYear": 2017
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Intel Core 10th Generation (i3)"
+  ],
+  "uniqueUsers": 3718,
+  "brand": "Intel",
+  "tflops": 0.44,
+  "powerW": 90,
+  "msrpUsd": 150,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "RX 7800 XT"
+  ],
+  "uniqueUsers": 3716,
+  "brand": "AMD",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 74.65,
+  "powerW": 263,
+  "msrpUsd": 500,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Intel Core 12th Generation (i9)"
+  ],
+  "uniqueUsers": 3686,
+  "brand": "Intel",
+  "tflops": 0.79,
+  "powerW": 241,
+  "msrpUsd": 600,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "RX 6700 XT"
+  ],
+  "uniqueUsers": 3652,
+  "brand": "AMD",
+  "memory": "12GB",
+  "memoryGb": [
+   12
+  ],
+  "tflops": 26.43,
+  "powerW": 230,
+  "msrpUsd": 500,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "GTX 1050 Ti"
+  ],
+  "uniqueUsers": 3626,
+  "brand": "NVIDIA",
+  "memory": "4GB",
+  "memoryGb": [
+   4
+  ],
+  "tflops": 2.1,
+  "powerW": 75,
+  "msrpUsd": 150,
+  "releaseYear": 2016
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 2080 Ti"
+  ],
+  "uniqueUsers": 3558,
+  "brand": "NVIDIA",
+  "memory": "22GB",
+  "memoryGb": [
+   11,
+   22
+  ],
+  "tflops": 26.9,
+  "powerW": 250,
+  "msrpUsd": 1000,
+  "releaseYear": 2018
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 3060 Mobile"
+  ],
+  "uniqueUsers": 3540,
+  "brand": "NVIDIA",
+  "memory": "6GB",
+  "memoryGb": [
+   6
+  ],
+  "tflops": 10.94,
+  "powerW": 115,
+  "msrpUsd": 400,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "GTX 1080 Ti"
+  ],
+  "uniqueUsers": 3481,
+  "brand": "NVIDIA",
+  "memory": "11GB",
+  "memoryGb": [
+   11
+  ],
+  "tflops": 11.34,
+  "powerW": 250,
+  "msrpUsd": 700,
+  "releaseYear": 2017
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "Ryzen Zen 5 9000 (Ryzen 5)"
+  ],
+  "uniqueUsers": 3465,
+  "brand": "AMD",
+  "tflops": 0.56,
+  "powerW": 88,
+  "msrpUsd": 300,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 2060"
+  ],
+  "uniqueUsers": 3452,
+  "brand": "NVIDIA",
+  "memory": "6GB",
+  "memoryGb": [
+   6
+  ],
+  "tflops": 12.9,
+  "powerW": 160,
+  "msrpUsd": 350,
+  "releaseYear": 2019
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "R9700 PRO"
+  ],
+  "uniqueUsers": 3365,
+  "brand": "AMD",
+  "memory": "32GB",
+  "memoryGb": [
+   32
+  ],
+  "tflops": 95.7,
+  "powerW": 300,
+  "msrpUsd": 1250,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 2070 SUPER"
+  ],
+  "uniqueUsers": 3344,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 18.12,
+  "powerW": 215,
+  "msrpUsd": 500,
+  "releaseYear": 2019
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Intel Core 10th Generation (i9)"
+  ],
+  "uniqueUsers": 3318,
+  "brand": "Intel",
+  "tflops": 0.46,
+  "powerW": 250,
+  "msrpUsd": 500,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "RX 9060 XT"
+  ],
+  "uniqueUsers": 3317,
+  "brand": "AMD",
+  "memory": "16GB",
+  "memoryGb": [
+   8,
+   16
+  ],
+  "tflops": 51.28,
+  "powerW": 160,
+  "msrpUsd": 350,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "Ryzen Zen 2 3000 (Ryzen 7)"
+  ],
+  "uniqueUsers": 3295,
+  "brand": "AMD",
+  "tflops": 0.72,
+  "powerW": 142,
+  "msrpUsd": 400,
+  "releaseYear": 2019
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "GTX 1070 Ti"
+  ],
+  "uniqueUsers": 3284,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 8.2,
+  "powerW": 180,
+  "msrpUsd": 450,
+  "releaseYear": 2017
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 3090 Ti"
+  ],
+  "uniqueUsers": 3266,
+  "brand": "NVIDIA",
+  "memory": "24GB",
+  "memoryGb": [
+   24
+  ],
+  "tflops": 40,
+  "powerW": 450,
+  "msrpUsd": 2000,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "RX 6800"
+  ],
+  "uniqueUsers": 2948,
+  "brand": "AMD",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 32.33,
+  "powerW": 250,
+  "msrpUsd": 600,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "RX 7900 XT"
+  ],
+  "uniqueUsers": 2890,
+  "brand": "AMD",
+  "memory": "20GB",
+  "memoryGb": [
+   20
+  ],
+  "tflops": 103,
+  "powerW": 315,
+  "msrpUsd": 900,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 2070"
+  ],
+  "uniqueUsers": 2866,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 14.93,
+  "powerW": 175,
+  "msrpUsd": 500,
+  "releaseYear": 2018
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Intel Core Ultra 9 275HX"
+  ],
+  "uniqueUsers": 2842,
+  "brand": "Intel",
+  "tflops": 1.89,
+  "powerW": 160,
+  "msrpUsd": 700,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Xeon E5v4 (Broadwell)"
+  ],
+  "uniqueUsers": 2756,
+  "brand": "Intel",
+  "tflops": 0.25,
+  "powerW": 145,
+  "msrpUsd": 4000,
+  "releaseYear": 2016
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "RX 6600"
+  ],
+  "uniqueUsers": 2641,
+  "brand": "AMD",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 17.86,
+  "powerW": 132,
+  "msrpUsd": 350,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "H200"
+  ],
+  "uniqueUsers": 2631,
+  "brand": "NVIDIA",
+  "memory": "141GB",
+  "memoryGb": [
+   141
+  ],
+  "tflops": 241.3,
+  "powerW": 700,
+  "msrpUsd": 32000,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "Ryzen Zen 2 3000 (Ryzen 9)"
+  ],
+  "uniqueUsers": 2592,
+  "brand": "AMD",
+  "tflops": 0.72,
+  "powerW": 142,
+  "msrpUsd": 750,
+  "releaseYear": 2019
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX PRO 6000 Max-Q"
+  ],
+  "uniqueUsers": 2438,
+  "brand": "NVIDIA",
+  "memory": "96GB",
+  "memoryGb": [
+   96
+  ],
+  "tflops": 116,
+  "powerW": 300,
+  "msrpUsd": 8600,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Xeon 4th Generation (Sapphire Rapids)"
+  ],
+  "uniqueUsers": 2426,
+  "brand": "Intel",
+  "tflops": 1.3,
+  "powerW": 350,
+  "msrpUsd": 10500,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "Ryzen 7 3800X (16)"
+  ],
+  "uniqueUsers": 2397,
+  "brand": "AMD",
+  "tflops": 1.15,
+  "powerW": 142,
+  "msrpUsd": 400,
+  "releaseYear": 2019
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 2080"
+  ],
+  "uniqueUsers": 2281,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 20.14,
+  "powerW": 215,
+  "msrpUsd": 700,
+  "releaseYear": 2018
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 4070 Mobile"
+  ],
+  "uniqueUsers": 2178,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 15.62,
+  "powerW": 115,
+  "msrpUsd": 500,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 4070 Laptop"
+  ],
+  "uniqueUsers": 2166,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 15.62,
+  "powerW": 115,
+  "msrpUsd": 500,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 6000 Ada"
+  ],
+  "uniqueUsers": 2131,
+  "brand": "NVIDIA",
+  "memory": "48GB",
+  "memoryGb": [
+   48
+  ],
+  "tflops": 91.1,
+  "powerW": 300,
+  "msrpUsd": 6800,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Xeon 2th Generation (Cascade Lake)"
+  ],
+  "uniqueUsers": 2090,
+  "brand": "Intel",
+  "tflops": 0.55,
+  "powerW": 205,
+  "msrpUsd": 10000,
+  "releaseYear": 2019
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 3070 Ti Mobile"
+  ],
+  "uniqueUsers": 1891,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 16.6,
+  "powerW": 125,
+  "msrpUsd": 700,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "RX 6950 XT"
+  ],
+  "uniqueUsers": 1873,
+  "brand": "AMD",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 47.31,
+  "powerW": 335,
+  "msrpUsd": 1100,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Xeon E5v3 (Haswell)"
+  ],
+  "uniqueUsers": 1854,
+  "brand": "Intel",
+  "tflops": 0.2,
+  "powerW": 145,
+  "msrpUsd": 4000,
+  "releaseYear": 2014
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "Ryzen AI 300 (Ryzen AI 9 HX)"
+  ],
+  "uniqueUsers": 1826,
+  "brand": "AMD",
+  "tflops": 5.52,
+  "powerW": 54,
+  "msrpUsd": 500,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "RX 7600 XT"
+  ],
+  "uniqueUsers": 1816,
+  "brand": "AMD",
+  "memory": "16GB",
+  "memoryGb": [
+   16,
+   8
+  ],
+  "tflops": 45.14,
+  "powerW": 190,
+  "msrpUsd": 350,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX A6000"
+  ],
+  "uniqueUsers": 1749,
+  "brand": "NVIDIA",
+  "memory": "48GB",
+  "memoryGb": [
+   48
+  ],
+  "tflops": 38.7,
+  "powerW": 300,
+  "msrpUsd": 4650,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 5070 Mobile"
+  ],
+  "uniqueUsers": 1748,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 13.13,
+  "powerW": 100,
+  "msrpUsd": 500,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Intel Core 11th Generation (i9)"
+  ],
+  "uniqueUsers": 1732,
+  "brand": "Intel",
+  "tflops": 0.7,
+  "powerW": 251,
+  "msrpUsd": 550,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 2060 Mobile"
+  ],
+  "uniqueUsers": 1696,
+  "brand": "NVIDIA",
+  "memory": "6GB",
+  "memoryGb": [
+   6
+  ],
+  "tflops": 9.22,
+  "powerW": 90,
+  "msrpUsd": 350,
+  "releaseYear": 2019
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "RX 9070"
+  ],
+  "uniqueUsers": 1656,
+  "brand": "AMD",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 72.25,
+  "powerW": 220,
+  "msrpUsd": 550,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "INTEL",
+   "Arc B580"
+  ],
+  "uniqueUsers": 1605,
+  "brand": "INTEL",
+  "memory": "12GB",
+  "memoryGb": [
+   12
+  ],
+  "tflops": 27.34,
+  "powerW": 190,
+  "msrpUsd": 250,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "P40"
+  ],
+  "uniqueUsers": 1582,
+  "brand": "NVIDIA",
+  "memory": "24GB",
+  "memoryGb": [
+   24
+  ],
+  "tflops": 11.76,
+  "powerW": 250,
+  "msrpUsd": 5700,
+  "releaseYear": 2016
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "L40s"
+  ],
+  "uniqueUsers": 1566,
+  "brand": "NVIDIA",
+  "memory": "48GB",
+  "memoryGb": [
+   48
+  ],
+  "tflops": 91.61,
+  "powerW": 350,
+  "msrpUsd": 8500,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 5060 Mobile"
+  ],
+  "uniqueUsers": 1561,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 9.684,
+  "powerW": 100,
+  "msrpUsd": 300,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX A4000"
+  ],
+  "uniqueUsers": 1552,
+  "brand": "NVIDIA",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 19.17,
+  "powerW": 140,
+  "msrpUsd": 1000,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 5090 Mobile"
+  ],
+  "uniqueUsers": 1484,
+  "brand": "NVIDIA",
+  "memory": "24GB",
+  "memoryGb": [
+   24
+  ],
+  "tflops": 31.8,
+  "powerW": 175,
+  "msrpUsd": 1500,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 5070 Ti Mobile"
+  ],
+  "uniqueUsers": 1469,
+  "brand": "NVIDIA",
+  "memory": "12GB",
+  "memoryGb": [
+   12
+  ],
+  "tflops": 17.04,
+  "powerW": 140,
+  "msrpUsd": 700,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Xeon E5v2 (Ivy Bridge)"
+  ],
+  "uniqueUsers": 1450,
+  "brand": "Intel",
+  "tflops": 0.15,
+  "powerW": 130,
+  "msrpUsd": 2500,
+  "releaseYear": 2013
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 5080 Mobile"
+  ],
+  "uniqueUsers": 1381,
+  "brand": "NVIDIA",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 23.04,
+  "powerW": 175,
+  "msrpUsd": 1000,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "L4"
+  ],
+  "uniqueUsers": 1369,
+  "brand": "NVIDIA",
+  "memory": "24GB",
+  "memoryGb": [
+   24
+  ],
+  "tflops": 30.29,
+  "powerW": 72,
+  "msrpUsd": 2500,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "Radeon 780M"
+  ],
+  "uniqueUsers": 1350,
+  "brand": "AMD",
+  "memory": "96GB",
+  "memoryGb": [
+   16,
+   24,
+   32,
+   48,
+   64,
+   96
+  ],
+  "tflops": 16.59,
+  "powerW": 15,
+  "msrpUsd": 329,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "INTEL",
+   "Arc A770"
+  ],
+  "uniqueUsers": 1335,
+  "brand": "INTEL",
+  "memory": "16GB",
+  "memoryGb": [
+   8,
+   16
+  ],
+  "tflops": 39.32,
+  "powerW": 225,
+  "msrpUsd": 350,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "INTEL",
+   "Arc Pro B70"
+  ],
+  "uniqueUsers": 1324,
+  "brand": "INTEL",
+  "memory": "32GB",
+  "memoryGb": [
+   32
+  ],
+  "tflops": 45.88,
+  "powerW": 230,
+  "msrpUsd": 949,
+  "releaseYear": 2026
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "B200"
+  ],
+  "uniqueUsers": 1313,
+  "brand": "NVIDIA",
+  "memory": "192GB",
+  "memoryGb": [
+   192
+  ],
+  "tflops": 496.6,
+  "powerW": 1000,
+  "msrpUsd": 40000,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Xeon 3th Generation (Ice Lake)"
+  ],
+  "uniqueUsers": 1303,
+  "brand": "Intel",
+  "tflops": 0.8,
+  "powerW": 270,
+  "msrpUsd": 8000,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "Apple Silicon",
+   "-",
+   "Apple M2 Ultra"
+  ],
+  "uniqueUsers": 1302,
+  "brand": "Apple",
+  "memory": "64-192GB",
+  "memoryGb": [
+   64,
+   96,
+   128,
+   192
+  ],
+  "tflops": 27.2,
+  "powerW": 150,
+  "msrpUsd": 7000,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "Ryzen Zen 2 3000 (Ryzen 3)"
+  ],
+  "uniqueUsers": 1276,
+  "brand": "AMD",
+  "tflops": 0.72,
+  "powerW": 88,
+  "msrpUsd": 150,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "Apple Silicon",
+   "-",
+   "Apple M1 Ultra"
+  ],
+  "uniqueUsers": 1175,
+  "brand": "Apple",
+  "memory": "16-128GB",
+  "memoryGb": [
+   16,
+   24,
+   32,
+   64,
+   96,
+   128
+  ],
+  "tflops": 21,
+  "powerW": 120,
+  "msrpUsd": 6200,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Intel Core Ultra 7 255HX"
+  ],
+  "uniqueUsers": 1155,
+  "brand": "Intel",
+  "tflops": 1.62,
+  "powerW": 160,
+  "msrpUsd": 583,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "RX 6600 XT"
+  ],
+  "uniqueUsers": 1150,
+  "brand": "AMD",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 21.21,
+  "powerW": 160,
+  "msrpUsd": 400,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX A2000"
+  ],
+  "uniqueUsers": 1144,
+  "brand": "NVIDIA",
+  "memory": "12GB",
+  "memoryGb": [
+   6,
+   12
+  ],
+  "tflops": 7.987,
+  "powerW": 70,
+  "msrpUsd": 450,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Intel Core 12th Generation (i3)"
+  ],
+  "uniqueUsers": 1132,
+  "brand": "Intel",
+  "tflops": 0.53,
+  "powerW": 89,
+  "msrpUsd": 150,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "P100"
+  ],
+  "uniqueUsers": 1123,
+  "brand": "NVIDIA",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 19.05,
+  "powerW": 300,
+  "msrpUsd": 7000,
+  "releaseYear": 2016
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "RX 5500 XT"
+  ],
+  "uniqueUsers": 1122,
+  "brand": "AMD",
+  "memory": "8GB",
+  "memoryGb": [
+   4,
+   8
+  ],
+  "tflops": 10.39,
+  "powerW": 130,
+  "msrpUsd": 200,
+  "releaseYear": 2019
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "Jetson Orin Nano 8GB"
+  ],
+  "uniqueUsers": 1097,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 2.56,
+  "powerW": 15,
+  "msrpUsd": 500,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 4000 Ada"
+  ],
+  "uniqueUsers": 1095,
+  "brand": "NVIDIA",
+  "memory": "20GB",
+  "memoryGb": [
+   20
+  ],
+  "tflops": 26.7,
+  "powerW": 130,
+  "msrpUsd": 1250,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "GTX 1070"
+  ],
+  "uniqueUsers": 1095,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 6.46,
+  "powerW": 150,
+  "msrpUsd": 379,
+  "releaseYear": 2016
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 2000 Ada"
+  ],
+  "uniqueUsers": 1090,
+  "brand": "NVIDIA",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 12,
+  "powerW": 70,
+  "msrpUsd": 650,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "B300"
+  ],
+  "uniqueUsers": 1075,
+  "brand": "NVIDIA",
+  "memory": "288GB",
+  "memoryGb": [
+   288
+  ],
+  "tflops": 1232,
+  "powerW": 1400,
+  "msrpUsd": 45000,
+  "releaseYear": 2026
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 3080 Mobile"
+  ],
+  "uniqueUsers": 1026,
+  "brand": "NVIDIA",
+  "memory": "16GB",
+  "memoryGb": [
+   16,
+   8
+  ],
+  "tflops": 18.98,
+  "powerW": 150,
+  "msrpUsd": 800,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "EPYC 4th Generation Zen 4 (Genoa)"
+  ],
+  "uniqueUsers": 1015,
+  "brand": "AMD",
+  "tflops": 5,
+  "powerW": 360,
+  "msrpUsd": 11500,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX A5000"
+  ],
+  "uniqueUsers": 944,
+  "brand": "NVIDIA",
+  "memory": "24GB",
+  "memoryGb": [
+   8,
+   12,
+   24
+  ],
+  "tflops": 27.77,
+  "powerW": 230,
+  "msrpUsd": 2250,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "MI50"
+  ],
+  "uniqueUsers": 912,
+  "brand": "AMD",
+  "memory": "32GB",
+  "memoryGb": [
+   16,
+   32
+  ],
+  "tflops": 26.5,
+  "powerW": 300,
+  "msrpUsd": 1800,
+  "releaseYear": 2018
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "GTX 1080"
+  ],
+  "uniqueUsers": 905,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 8.87,
+  "powerW": 180,
+  "msrpUsd": 599,
+  "releaseYear": 2016
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "EPYC 2th Generation Zen 2 (Rome)"
+  ],
+  "uniqueUsers": 888,
+  "brand": "AMD",
+  "tflops": 0.6,
+  "powerW": 225,
+  "msrpUsd": 7000,
+  "releaseYear": 2019
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "RX 7700 XT"
+  ],
+  "uniqueUsers": 883,
+  "brand": "AMD",
+  "memory": "12GB",
+  "memoryGb": [
+   12
+  ],
+  "tflops": 70.34,
+  "powerW": 245,
+  "msrpUsd": 450,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "Apple Silicon",
+   "-",
+   "Apple M5 Ultra"
+  ],
+  "uniqueUsers": 880,
+  "brand": "Apple",
+  "memory": "96-256GB",
+  "memoryGb": [
+   96,
+   256
+  ],
+  "tflops": 45.6,
+  "powerW": 220,
+  "msrpUsd": 10799,
+  "releaseYear": 2026
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "Ryzen AI 300 (Ryzen AI 7)"
+  ],
+  "uniqueUsers": 875,
+  "brand": "AMD",
+  "tflops": 4.34,
+  "powerW": 54,
+  "msrpUsd": 350,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 4090 Mobile"
+  ],
+  "uniqueUsers": 871,
+  "brand": "NVIDIA",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 32.98,
+  "powerW": 150,
+  "msrpUsd": 1500,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "Ryzen Threadripper Zen 4 7000 (Storm Peak)"
+  ],
+  "uniqueUsers": 870,
+  "brand": "AMD",
+  "tflops": 10,
+  "powerW": 350,
+  "msrpUsd": 5000,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "INTEL",
+   "Arc A750"
+  ],
+  "uniqueUsers": 862,
+  "brand": "INTEL",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 34.41,
+  "powerW": 225,
+  "msrpUsd": 250,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 4090 Laptop"
+  ],
+  "uniqueUsers": 832,
+  "brand": "NVIDIA",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 32.98,
+  "powerW": 150,
+  "msrpUsd": 1500,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 4080 Mobile"
+  ],
+  "uniqueUsers": 830,
+  "brand": "NVIDIA",
+  "memory": "12GB",
+  "memoryGb": [
+   12
+  ],
+  "tflops": 24.72,
+  "powerW": 150,
+  "msrpUsd": 1000,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "Ryzen Threadripper Zen 5 9000 (Shimada Peak)"
+  ],
+  "uniqueUsers": 827,
+  "brand": "AMD",
+  "tflops": 14,
+  "powerW": 350,
+  "msrpUsd": 5000,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "EPYC 3th Generation Zen 3 (Milan)"
+  ],
+  "uniqueUsers": 821,
+  "brand": "AMD",
+  "tflops": 2.4,
+  "powerW": 280,
+  "msrpUsd": 8000,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "A40"
+  ],
+  "uniqueUsers": 814,
+  "brand": "NVIDIA",
+  "memory": "48GB",
+  "memoryGb": [
+   48
+  ],
+  "tflops": 37.42,
+  "powerW": 300,
+  "msrpUsd": 5500,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "Ryzen AI 300 (Ryzen AI 9)"
+  ],
+  "uniqueUsers": 791,
+  "brand": "AMD",
+  "tflops": 5.2,
+  "powerW": 54,
+  "msrpUsd": 450,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "EPYC 5th Generation Zen 5 (Turin)"
+  ],
+  "uniqueUsers": 768,
+  "brand": "AMD",
+  "tflops": 13.8,
+  "powerW": 500,
+  "msrpUsd": 13000,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "A10"
+  ],
+  "uniqueUsers": 758,
+  "brand": "NVIDIA",
+  "memory": "24GB",
+  "memoryGb": [
+   24
+  ],
+  "tflops": 31.24,
+  "powerW": 150,
+  "msrpUsd": 3200,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Intel Core 13th Generation (i3)"
+  ],
+  "uniqueUsers": 751,
+  "brand": "Intel",
+  "tflops": 0.57,
+  "powerW": 89,
+  "msrpUsd": 150,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 4080 Laptop"
+  ],
+  "uniqueUsers": 739,
+  "brand": "NVIDIA",
+  "memory": "12GB",
+  "memoryGb": [
+   12
+  ],
+  "tflops": 24.72,
+  "powerW": 150,
+  "msrpUsd": 1000,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 5000 Ada"
+  ],
+  "uniqueUsers": 733,
+  "brand": "NVIDIA",
+  "memory": "32GB",
+  "memoryGb": [
+   32
+  ],
+  "tflops": 65.3,
+  "powerW": 250,
+  "msrpUsd": 4000,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "Ryzen Threadripper Zen 2 3000 (Castle Peak)"
+  ],
+  "uniqueUsers": 693,
+  "brand": "AMD",
+  "tflops": 3.2,
+  "powerW": 280,
+  "msrpUsd": 4000,
+  "releaseYear": 2019
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "RX 6650 XT"
+  ],
+  "uniqueUsers": 678,
+  "brand": "AMD",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 21.59,
+  "powerW": 180,
+  "msrpUsd": 400,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 4090D"
+  ],
+  "uniqueUsers": 677,
+  "brand": "NVIDIA",
+  "memory": "48GB",
+  "memoryGb": [
+   24,
+   48
+  ],
+  "tflops": 79.49,
+  "powerW": 425,
+  "msrpUsd": 1600,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 2060 12GB"
+  ],
+  "uniqueUsers": 673,
+  "brand": "NVIDIA",
+  "memory": "12GB",
+  "memoryGb": [
+   12
+  ],
+  "tflops": 14.36,
+  "powerW": 184,
+  "msrpUsd": 300,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "INTEL",
+   "Arc B60"
+  ],
+  "uniqueUsers": 662,
+  "brand": "INTEL",
+  "memory": "48GB",
+  "memoryGb": [
+   24,
+   48
+  ],
+  "tflops": 24.58,
+  "powerW": 200,
+  "msrpUsd": 1200,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX PRO 5000"
+  ],
+  "uniqueUsers": 660,
+  "brand": "NVIDIA",
+  "memory": "72GB",
+  "memoryGb": [
+   48,
+   72
+  ],
+  "tflops": 66.94,
+  "powerW": 300,
+  "msrpUsd": 4500,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "Radeon Pro VII"
+  ],
+  "uniqueUsers": 653,
+  "brand": "AMD",
+  "memory": "32GB",
+  "memoryGb": [
+   16,
+   32
+  ],
+  "tflops": 26.11,
+  "powerW": 250,
+  "msrpUsd": 1900,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "L40"
+  ],
+  "uniqueUsers": 646,
+  "brand": "NVIDIA",
+  "memory": "48GB",
+  "memoryGb": [
+   48
+  ],
+  "tflops": 90.52,
+  "powerW": 300,
+  "msrpUsd": 7500,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "RX 7900 GRE"
+  ],
+  "uniqueUsers": 646,
+  "brand": "AMD",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 91.96,
+  "powerW": 260,
+  "msrpUsd": 550,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "RX 5700 XT"
+  ],
+  "uniqueUsers": 644,
+  "brand": "AMD",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 19.51,
+  "powerW": 225,
+  "msrpUsd": 399,
+  "releaseYear": 2019
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "Jetson AGX Orin 64GB"
+  ],
+  "uniqueUsers": 638,
+  "brand": "NVIDIA",
+  "memory": "64GB",
+  "memoryGb": [
+   64
+  ],
+  "tflops": 10.65,
+  "powerW": 60,
+  "msrpUsd": 2000,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 2050 Mobile"
+  ],
+  "uniqueUsers": 638,
+  "brand": "NVIDIA",
+  "memory": "4GB",
+  "memoryGb": [
+   4
+  ],
+  "tflops": 10.2,
+  "powerW": 45,
+  "msrpUsd": 250,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "CPU",
+   "Intel",
+   "Intel Core 11th Generation (i3)"
+  ],
+  "uniqueUsers": 631,
+  "brand": "Intel",
+  "tflops": 0.35,
+  "powerW": 90,
+  "msrpUsd": 150,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 4500 Ada"
+  ],
+  "uniqueUsers": 597,
+  "brand": "NVIDIA",
+  "memory": "24GB",
+  "memoryGb": [
+   24
+  ],
+  "tflops": 39.6,
+  "powerW": 210,
+  "msrpUsd": 2250,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 5050"
+  ],
+  "uniqueUsers": 580,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 13.17,
+  "powerW": 130,
+  "msrpUsd": 249,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 5090 D"
+  ],
+  "uniqueUsers": 573,
+  "brand": "NVIDIA",
+  "memory": "32GB",
+  "memoryGb": [
+   32
+  ],
+  "tflops": 104.8,
+  "powerW": 575,
+  "msrpUsd": 2000,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "Radeon 890M"
+  ],
+  "uniqueUsers": 553,
+  "brand": "AMD",
+  "memory": "96GB",
+  "memoryGb": [
+   16,
+   24,
+   32,
+   48,
+   64,
+   96
+  ],
+  "tflops": 11.88,
+  "powerW": 15,
+  "msrpUsd": 450,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX PRO 4000"
+  ],
+  "uniqueUsers": 549,
+  "brand": "NVIDIA",
+  "memory": "24GB",
+  "memoryGb": [
+   24
+  ],
+  "tflops": 36.83,
+  "powerW": 140,
+  "msrpUsd": 1500,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "INTEL",
+   "Arc B50"
+  ],
+  "uniqueUsers": 538,
+  "brand": "INTEL",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 21.3,
+  "powerW": 70,
+  "msrpUsd": 350,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "RX 6700"
+  ],
+  "uniqueUsers": 519,
+  "brand": "AMD",
+  "memory": "10GB",
+  "memoryGb": [
+   10
+  ],
+  "tflops": 22.58,
+  "powerW": 175,
+  "msrpUsd": 329,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "Apple Silicon",
+   "-",
+   "Apple MacBook Neo"
+  ],
+  "uniqueUsers": 512,
+  "brand": "Apple",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 1.9,
+  "powerW": 10,
+  "msrpUsd": 700,
+  "releaseYear": 2026
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "MI300"
+  ],
+  "uniqueUsers": 510,
+  "brand": "AMD",
+  "memory": "192GB",
+  "memoryGb": [
+   192
+  ],
+  "tflops": 383,
+  "powerW": 750,
+  "msrpUsd": 15000,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "Quadro P6000"
+  ],
+  "uniqueUsers": 505,
+  "brand": "NVIDIA",
+  "memory": "24GB",
+  "memoryGb": [
+   24
+  ],
+  "tflops": 12.63,
+  "powerW": 250,
+  "msrpUsd": 5000,
+  "releaseYear": 2016
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 3050"
+  ],
+  "uniqueUsers": 494,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8,
+   6
+  ],
+  "tflops": 9.098,
+  "powerW": 130,
+  "msrpUsd": 249,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 5050 Mobile"
+  ],
+  "uniqueUsers": 472,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 7.7,
+  "powerW": 100,
+  "msrpUsd": 250,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 4000 SFF Ada"
+  ],
+  "uniqueUsers": 455,
+  "brand": "NVIDIA",
+  "memory": "20GB",
+  "memoryGb": [
+   20
+  ],
+  "tflops": 19.2,
+  "powerW": 70,
+  "msrpUsd": 1250,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX A2000 Mobile"
+  ],
+  "uniqueUsers": 443,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   4,
+   8
+  ],
+  "tflops": 8.4,
+  "powerW": 95,
+  "msrpUsd": 450,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "QUALCOMM",
+   "Snapdragon X Elite X1E-00-1DE"
+  ],
+  "uniqueUsers": 427,
+  "brand": "QUALCOMM",
+  "tflops": 4.6,
+  "powerW": 80,
+  "msrpUsd": 900,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "GPU",
+   "QUALCOMM",
+   "Snapdragon X Plus X1P-64-100"
+  ],
+  "uniqueUsers": 397,
+  "brand": "QUALCOMM",
+  "tflops": 3.8,
+  "powerW": 23,
+  "msrpUsd": 1000,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX Titan"
+  ],
+  "uniqueUsers": 396,
+  "brand": "NVIDIA",
+  "memory": "24GB",
+  "memoryGb": [
+   24
+  ],
+  "tflops": 32.62,
+  "powerW": 280,
+  "msrpUsd": 2500,
+  "releaseYear": 2018
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 2070 SUPER Mobile"
+  ],
+  "uniqueUsers": 377,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 14.13,
+  "powerW": 115,
+  "msrpUsd": 600,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX PRO 4500 WS"
+  ],
+  "uniqueUsers": 369,
+  "brand": "NVIDIA",
+  "memory": "32GB",
+  "memoryGb": [
+   32
+  ],
+  "tflops": 50.53,
+  "powerW": 200,
+  "msrpUsd": 2800,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "Ryzen Threadripper Zen 3 5000 (Chagall)"
+  ],
+  "uniqueUsers": 349,
+  "brand": "AMD",
+  "tflops": 4.6,
+  "powerW": 280,
+  "msrpUsd": 6500,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX A3000 Mobile"
+  ],
+  "uniqueUsers": 348,
+  "brand": "NVIDIA",
+  "memory": "12GB",
+  "memoryGb": [
+   6,
+   12
+  ],
+  "tflops": 10.9,
+  "powerW": 80,
+  "msrpUsd": 700,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "Jetson Nano"
+  ],
+  "uniqueUsers": 334,
+  "brand": "NVIDIA",
+  "memory": "4GB",
+  "memoryGb": [
+   4
+  ],
+  "tflops": 0.47,
+  "powerW": 10,
+  "msrpUsd": 100,
+  "releaseYear": 2019
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "RX 5700"
+  ],
+  "uniqueUsers": 317,
+  "brand": "AMD",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 15.9,
+  "powerW": 180,
+  "msrpUsd": 349,
+  "releaseYear": 2019
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "GTX 1650"
+  ],
+  "uniqueUsers": 302,
+  "brand": "NVIDIA",
+  "memory": "4GB",
+  "memoryGb": [
+   4
+  ],
+  "tflops": 5.967,
+  "powerW": 75,
+  "msrpUsd": 149,
+  "releaseYear": 2019
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "Ryzen Threadripper Zen 1000 (Whitehaven)"
+  ],
+  "uniqueUsers": 290,
+  "brand": "AMD",
+  "tflops": 0.6,
+  "powerW": 180,
+  "msrpUsd": 1000,
+  "releaseYear": 2017
+ },
+ {
+  "sku": [
+   "GPU",
+   "INTEL",
+   "Arc A380"
+  ],
+  "uniqueUsers": 279,
+  "brand": "INTEL",
+  "memory": "6GB",
+  "memoryGb": [
+   6
+  ],
+  "tflops": 8.4,
+  "powerW": 75,
+  "msrpUsd": 139,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "L20"
+  ],
+  "uniqueUsers": 276,
+  "brand": "NVIDIA",
+  "memory": "48GB",
+  "memoryGb": [
+   48
+  ],
+  "tflops": 59.35,
+  "powerW": 275,
+  "msrpUsd": 5000,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "Ryzen AI 300 (Ryzen AI 5)"
+  ],
+  "uniqueUsers": 276,
+  "brand": "AMD",
+  "tflops": 1.57,
+  "powerW": 28,
+  "msrpUsd": 250,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX PRO 2000"
+  ],
+  "uniqueUsers": 264,
+  "brand": "NVIDIA",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 17.03,
+  "powerW": 70,
+  "msrpUsd": 700,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "Jetson Orin NX 16GB"
+  ],
+  "uniqueUsers": 250,
+  "brand": "NVIDIA",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 3.76,
+  "powerW": 25,
+  "msrpUsd": 600,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "QUALCOMM",
+   "Snapdragon X Elite X1E-80-100"
+  ],
+  "uniqueUsers": 241,
+  "brand": "QUALCOMM",
+  "tflops": 3.8,
+  "powerW": 23,
+  "msrpUsd": 1300,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "Radeon 860M"
+  ],
+  "uniqueUsers": 236,
+  "brand": "AMD",
+  "memory": "96GB",
+  "memoryGb": [
+   16,
+   24,
+   32,
+   48,
+   64,
+   96
+  ],
+  "tflops": 6.14,
+  "powerW": 15,
+  "msrpUsd": 300,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX A5000 Mobile"
+  ],
+  "uniqueUsers": 230,
+  "brand": "NVIDIA",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 19.35,
+  "powerW": 165,
+  "msrpUsd": 2000,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "Radeon Pro V620"
+  ],
+  "uniqueUsers": 217,
+  "brand": "AMD",
+  "memory": "32GB",
+  "memoryGb": [
+   32
+  ],
+  "tflops": 40.55,
+  "powerW": 300,
+  "msrpUsd": 3000,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "CPU",
+   "AMD",
+   "EPYC 1st Generation Zen (Naples)"
+  ],
+  "uniqueUsers": 217,
+  "brand": "AMD",
+  "tflops": 0.6,
+  "powerW": 180,
+  "msrpUsd": 4000,
+  "releaseYear": 2017
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "GTX 1660 SUPER"
+  ],
+  "uniqueUsers": 214,
+  "brand": "NVIDIA",
+  "memory": "6GB",
+  "memoryGb": [
+   6
+  ],
+  "tflops": 10.05,
+  "powerW": 125,
+  "msrpUsd": 229,
+  "releaseYear": 2019
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "A2"
+  ],
+  "uniqueUsers": 210,
+  "brand": "NVIDIA",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 4.531,
+  "powerW": 60,
+  "msrpUsd": 1000,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 5880 Ada"
+  ],
+  "uniqueUsers": 202,
+  "brand": "NVIDIA",
+  "memory": "48GB",
+  "memoryGb": [
+   48
+  ],
+  "tflops": 69.3,
+  "powerW": 285,
+  "msrpUsd": 6000,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "MI60"
+  ],
+  "uniqueUsers": 195,
+  "brand": "AMD",
+  "memory": "32GB",
+  "memoryGb": [
+   32
+  ],
+  "tflops": 29.5,
+  "powerW": 300,
+  "msrpUsd": 3000,
+  "releaseYear": 2018
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 2060 SUPER"
+  ],
+  "uniqueUsers": 191,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 14.36,
+  "powerW": 175,
+  "msrpUsd": 399,
+  "releaseYear": 2019
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "RX 6800 XT"
+  ],
+  "uniqueUsers": 190,
+  "brand": "AMD",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 41.47,
+  "powerW": 300,
+  "msrpUsd": 650,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX PRO 4000 SFF"
+  ],
+  "uniqueUsers": 188,
+  "brand": "NVIDIA",
+  "memory": "24GB",
+  "memoryGb": [
+   24
+  ],
+  "tflops": 24.05,
+  "powerW": 70,
+  "msrpUsd": 1500,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "INTEL",
+   "Arc B570"
+  ],
+  "uniqueUsers": 186,
+  "brand": "INTEL",
+  "memory": "10GB",
+  "memoryGb": [
+   10
+  ],
+  "tflops": 23.04,
+  "powerW": 150,
+  "msrpUsd": 200,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "Radeon 680M"
+  ],
+  "uniqueUsers": 182,
+  "brand": "AMD",
+  "memory": "96GB",
+  "memoryGb": [
+   16,
+   24,
+   32,
+   48,
+   64,
+   96
+  ],
+  "tflops": 6.76,
+  "powerW": 50,
+  "msrpUsd": 120,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "Radeon 610M"
+  ],
+  "uniqueUsers": 177,
+  "brand": "AMD",
+  "memory": "96GB",
+  "memoryGb": [
+   16,
+   24,
+   32,
+   48,
+   64,
+   96
+  ],
+  "tflops": 0.97,
+  "powerW": 15,
+  "msrpUsd": 300,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "QUALCOMM",
+   "Snapdragon X Elite X1E-84-100"
+  ],
+  "uniqueUsers": 164,
+  "brand": "QUALCOMM",
+  "tflops": 4.6,
+  "powerW": 30,
+  "msrpUsd": 1700,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "MI250"
+  ],
+  "uniqueUsers": 163,
+  "brand": "AMD",
+  "memory": "128GB",
+  "memoryGb": [
+   128
+  ],
+  "tflops": 362.1,
+  "powerW": 560,
+  "msrpUsd": 10000,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "MI100"
+  ],
+  "uniqueUsers": 158,
+  "brand": "AMD",
+  "memory": "32GB",
+  "memoryGb": [
+   32
+  ],
+  "tflops": 184.6,
+  "powerW": 300,
+  "msrpUsd": 6400,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 3500 Ada Mobile"
+  ],
+  "uniqueUsers": 145,
+  "brand": "NVIDIA",
+  "memory": "12GB",
+  "memoryGb": [
+   12
+  ],
+  "tflops": 15.8,
+  "powerW": 150,
+  "msrpUsd": 1500,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "RX 6900 XT"
+  ],
+  "uniqueUsers": 143,
+  "brand": "AMD",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 46.08,
+  "powerW": 300,
+  "msrpUsd": 1000,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "GPU",
+   "QUALCOMM",
+   "Snapdragon X Elite X1E-78-100"
+  ],
+  "uniqueUsers": 140,
+  "brand": "QUALCOMM",
+  "tflops": 3.8,
+  "powerW": 23,
+  "msrpUsd": 1200,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "GTX 1660 Ti"
+  ],
+  "uniqueUsers": 136,
+  "brand": "NVIDIA",
+  "memory": "6GB",
+  "memoryGb": [
+   6
+  ],
+  "tflops": 10.87,
+  "powerW": 120,
+  "msrpUsd": 279,
+  "releaseYear": 2019
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "Radeon 760M"
+  ],
+  "uniqueUsers": 134,
+  "brand": "AMD",
+  "memory": "96GB",
+  "memoryGb": [
+   16,
+   24,
+   32,
+   48,
+   64,
+   96
+  ],
+  "tflops": 10.65,
+  "powerW": 15,
+  "msrpUsd": 229,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX A4000 Mobile"
+  ],
+  "uniqueUsers": 128,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 17.2,
+  "powerW": 80,
+  "msrpUsd": 1000,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "MI210"
+  ],
+  "uniqueUsers": 127,
+  "brand": "AMD",
+  "memory": "64GB",
+  "memoryGb": [
+   64
+  ],
+  "tflops": 181,
+  "powerW": 300,
+  "msrpUsd": 8000,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "T10"
+  ],
+  "uniqueUsers": 122,
+  "brand": "NVIDIA",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 20,
+  "powerW": 150,
+  "msrpUsd": 2000,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "Jetson AGX Orin 32GB"
+  ],
+  "uniqueUsers": 121,
+  "brand": "NVIDIA",
+  "memory": "32GB",
+  "memoryGb": [
+   32
+  ],
+  "tflops": 6.66,
+  "powerW": 40,
+  "msrpUsd": 999,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "Jetson Orin Nano 4GB"
+  ],
+  "uniqueUsers": 117,
+  "brand": "NVIDIA",
+  "memory": "4GB",
+  "memoryGb": [
+   4
+  ],
+  "tflops": 1.28,
+  "powerW": 10,
+  "msrpUsd": 200,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "Radeon 880M"
+  ],
+  "uniqueUsers": 114,
+  "brand": "AMD",
+  "memory": "96GB",
+  "memoryGb": [
+   16,
+   24,
+   32,
+   48,
+   64,
+   96
+  ],
+  "tflops": 8.91,
+  "powerW": 15,
+  "msrpUsd": 400,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "Jetson AGX Xavier"
+  ],
+  "uniqueUsers": 114,
+  "brand": "NVIDIA",
+  "memory": "64GB",
+  "memoryGb": [
+   32,
+   64
+  ],
+  "tflops": 2.82,
+  "powerW": 30,
+  "msrpUsd": 1100,
+  "releaseYear": 2018
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "RX 6750 XT"
+  ],
+  "uniqueUsers": 103,
+  "brand": "AMD",
+  "memory": "12GB",
+  "memoryGb": [
+   12
+  ],
+  "tflops": 26.62,
+  "powerW": 250,
+  "msrpUsd": 550,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "PRO W7800"
+  ],
+  "uniqueUsers": 102,
+  "brand": "AMD",
+  "memory": "48GB",
+  "memoryGb": [
+   32,
+   48
+  ],
+  "tflops": 90.5,
+  "powerW": 260,
+  "msrpUsd": 2500,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX 2080 SUPER"
+  ],
+  "uniqueUsers": 98,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 22.3,
+  "powerW": 250,
+  "msrpUsd": 699,
+  "releaseYear": 2019
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "A30"
+  ],
+  "uniqueUsers": 97,
+  "brand": "NVIDIA",
+  "memory": "24GB",
+  "memoryGb": [
+   24
+  ],
+  "tflops": 10.32,
+  "powerW": 165,
+  "msrpUsd": 5000,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "H20"
+  ],
+  "uniqueUsers": 86,
+  "brand": "NVIDIA",
+  "memory": "96GB",
+  "memoryGb": [
+   96
+  ],
+  "tflops": 148,
+  "powerW": 400,
+  "msrpUsd": 13500,
+  "releaseYear": 2024
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "PRO W7900"
+  ],
+  "uniqueUsers": 86,
+  "brand": "AMD",
+  "memory": "48GB",
+  "memoryGb": [
+   48
+  ],
+  "tflops": 122.6,
+  "powerW": 295,
+  "msrpUsd": 4000,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "A800"
+  ],
+  "uniqueUsers": 85,
+  "brand": "NVIDIA",
+  "memory": "80GB",
+  "memoryGb": [
+   40,
+   80
+  ],
+  "tflops": 77.97,
+  "powerW": 400,
+  "msrpUsd": 12000,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "Radeon 740M"
+  ],
+  "uniqueUsers": 83,
+  "brand": "AMD",
+  "memory": "96GB",
+  "memoryGb": [
+   16,
+   24,
+   32,
+   48,
+   64,
+   96
+  ],
+  "tflops": 5.12,
+  "powerW": 15,
+  "msrpUsd": 179,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "RX 5600 XT"
+  ],
+  "uniqueUsers": 77,
+  "brand": "AMD",
+  "memory": "6GB",
+  "memoryGb": [
+   6
+  ],
+  "tflops": 14.38,
+  "powerW": 150,
+  "msrpUsd": 279,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "GTX 1650 Ti Mobile"
+  ],
+  "uniqueUsers": 73,
+  "brand": "NVIDIA",
+  "memory": "4GB",
+  "memoryGb": [
+   4
+  ],
+  "tflops": 6.083,
+  "powerW": 55,
+  "msrpUsd": 200,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "Jetson Orin NX 8GB"
+  ],
+  "uniqueUsers": 66,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 3.13,
+  "powerW": 20,
+  "msrpUsd": 400,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "Jetson Xavier NX"
+  ],
+  "uniqueUsers": 66,
+  "brand": "NVIDIA",
+  "memory": "16GB",
+  "memoryGb": [
+   8,
+   16
+  ],
+  "tflops": 1.69,
+  "powerW": 20,
+  "msrpUsd": 400,
+  "releaseYear": 2020
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "H800"
+  ],
+  "uniqueUsers": 65,
+  "brand": "NVIDIA",
+  "memory": "80GB",
+  "memoryGb": [
+   80
+  ],
+  "tflops": 237.2,
+  "powerW": 700,
+  "msrpUsd": 30000,
+  "releaseYear": 2023
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "Quadro RTX 5000"
+  ],
+  "uniqueUsers": 61,
+  "brand": "NVIDIA",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 22.3,
+  "powerW": 265,
+  "msrpUsd": 2300,
+  "releaseYear": 2018
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX A5000 Max-Q"
+  ],
+  "uniqueUsers": 61,
+  "brand": "NVIDIA",
+  "memory": "16GB",
+  "memoryGb": [
+   16
+  ],
+  "tflops": 16.59,
+  "powerW": 80,
+  "msrpUsd": 2000,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "GTX 1650 SUPER"
+  ],
+  "uniqueUsers": 53,
+  "brand": "NVIDIA",
+  "memory": "4GB",
+  "memoryGb": [
+   4
+  ],
+  "tflops": 8.832,
+  "powerW": 100,
+  "msrpUsd": 159,
+  "releaseYear": 2019
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX A2000 Embedded"
+  ],
+  "uniqueUsers": 49,
+  "brand": "NVIDIA",
+  "memory": "4GB",
+  "memoryGb": [
+   4
+  ],
+  "tflops": 6.026,
+  "powerW": 70,
+  "msrpUsd": 400,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "Jetson TX2"
+  ],
+  "uniqueUsers": 45,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   4,
+   8
+  ],
+  "tflops": 1.33,
+  "powerW": 15,
+  "msrpUsd": 400,
+  "releaseYear": 2017
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX A4000 Max-Q"
+  ],
+  "uniqueUsers": 42,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   8
+  ],
+  "tflops": 14.28,
+  "powerW": 35,
+  "msrpUsd": 1000,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "GTX 1660 Ti Mobile"
+  ],
+  "uniqueUsers": 42,
+  "brand": "NVIDIA",
+  "memory": "6GB",
+  "memoryGb": [
+   6
+  ],
+  "tflops": 9.769,
+  "powerW": 80,
+  "msrpUsd": 250,
+  "releaseYear": 2019
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "RTX A2000 Max-Q"
+  ],
+  "uniqueUsers": 40,
+  "brand": "NVIDIA",
+  "memory": "8GB",
+  "memoryGb": [
+   4,
+   8
+  ],
+  "tflops": 6.1,
+  "powerW": 35,
+  "msrpUsd": 450,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "Radeon 840M"
+  ],
+  "uniqueUsers": 40,
+  "brand": "AMD",
+  "memory": "96GB",
+  "memoryGb": [
+   16,
+   24,
+   32,
+   48,
+   64,
+   96
+  ],
+  "tflops": 2.97,
+  "powerW": 15,
+  "msrpUsd": 250,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "Jetson T5000"
+  ],
+  "uniqueUsers": 33,
+  "brand": "NVIDIA",
+  "memory": "128GB",
+  "memoryGb": [
+   128
+  ],
+  "tflops": 258.5,
+  "powerW": 130,
+  "msrpUsd": 3499,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "Quadro RTX 6000"
+  ],
+  "uniqueUsers": 25,
+  "brand": "NVIDIA",
+  "memory": "24GB",
+  "memoryGb": [
+   24
+  ],
+  "tflops": 32.63,
+  "powerW": 295,
+  "msrpUsd": 6300,
+  "releaseYear": 2018
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "Quadro RTX 8000"
+  ],
+  "uniqueUsers": 21,
+  "brand": "NVIDIA",
+  "memory": "48GB",
+  "memoryGb": [
+   48
+  ],
+  "tflops": 32.63,
+  "powerW": 295,
+  "msrpUsd": 10000,
+  "releaseYear": 2018
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "Radeon Pro W6800X"
+  ],
+  "uniqueUsers": 8,
+  "brand": "AMD",
+  "memory": "32GB",
+  "memoryGb": [
+   32
+  ],
+  "tflops": 32.06,
+  "powerW": 300,
+  "msrpUsd": 2800,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "GTX 1630"
+  ],
+  "uniqueUsers": 7,
+  "brand": "NVIDIA",
+  "memory": "4GB",
+  "memoryGb": [
+   4
+  ],
+  "tflops": 3.656,
+  "powerW": 75,
+  "msrpUsd": 170,
+  "releaseYear": 2022
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "Radeon 820M"
+  ],
+  "uniqueUsers": 7,
+  "brand": "AMD",
+  "memory": "96GB",
+  "memoryGb": [
+   16,
+   24,
+   32,
+   48,
+   64,
+   96
+  ],
+  "tflops": 1.434,
+  "powerW": 15,
+  "msrpUsd": 200,
+  "releaseYear": 2025
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "Radeon Pro W6800X Duo"
+  ],
+  "uniqueUsers": 3,
+  "brand": "AMD",
+  "memory": "64GB",
+  "memoryGb": [
+   64
+  ],
+  "tflops": 60.43,
+  "powerW": 400,
+  "msrpUsd": 5000,
+  "releaseYear": 2021
+ },
+ {
+  "sku": [
+   "GPU",
+   "NVIDIA",
+   "T40"
+  ],
+  "uniqueUsers": 2,
+  "brand": "NVIDIA",
+  "memory": "24GB",
+  "memoryGb": [
+   24
+  ],
+  "tflops": 28.75,
+  "powerW": 250,
+  "msrpUsd": 4000,
+  "releaseYear": 2019
+ },
+ {
+  "sku": [
+   "GPU",
+   "AMD",
+   "Radeon Pro W6900X"
+  ],
+  "uniqueUsers": 2,
+  "brand": "AMD",
+  "memory": "32GB",
+  "memoryGb": [
+   32
+  ],
+  "tflops": 44.46,
+  "powerW": 300,
+  "msrpUsd": 6000,
+  "releaseYear": 2021
+ }
+]

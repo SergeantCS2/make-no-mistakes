@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% set tab = "system" %}
+{% block title %}Engines · makenomistakes{% endblock %}
+{% block subtabs %}{% include "_system_tabs.html" %}{% endblock %}
+{% block body %}
+{% set busy = job and job.state == JobState.RUNNING %}
+<section class="panel double" aria-labelledby="e-title">
+  <h1 class="panel-title" id="e-title">Engines</h1>
+  <p class="hint">Each engine runs from its official image; a build changes only when you update it. An update pulls the newest build (a few GB), tests it on a copy of the smallest instance against the previous build, and rolls back by itself when it fails. Instances keep their build until restarted.</p>
+  <p class="hint">{{ found.box }} Each image is built for one backend; a tag for another one stays listed while an instance names it (<code>mnm replan</code> moves it).</p>
+  {% if rolled %}<div class="okline" role="status">Rolled back: {{ rolled }}. Restart the instances that use it to switch.</div>{% endif %}
+  {% if found.error %}<div class="error" role="alert"><strong>Docker could not be asked:</strong> {{ found.error }}</div>{% endif %}
+  {% if found.ledger_note %}<div class="warnline">{{ found.ledger_note }} Rollback is unknown until it can be read.</div>{% endif %}
+  {% if job %}{% include "_job.html" %}{% endif %}
+  {% set check = found.check %}
+  {% if check %}<p class="hint">Registry checked {{ check.when }}: nothing is pulled until you update.</p>
+  {% for line in check.instances %}<div class="warnline">{{ line.line }}</div>{% endfor %}
+  {% endif %}
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>Engine</th><th>Image</th><th>Backend</th><th>Build</th><th>Registry</th><th>Used by</th><th><span class="sr-only">Actions</span></th></tr></thead>
+    <tbody>{% for row in found.rows %}<tr>
+      <td data-label="Engine" class="hi">{{ row.engine.value }}</td>
+      <td data-label="Image"><code>{{ row.image.removeprefix("ghcr.io/") }}</code></td>
+      <td data-label="Backend">{{ row.backend }}</td>
+      <td data-label="Build">{% if row.local %}<code>{{ row.local.short_id }}</code> <span class="hint">{{ row.local.created_day }}</span>{% else %}<span class="st st-off">not pulled</span>{% endif %}</td>
+      {% set up = found.upstream(row.image) %}
+      <td data-label="Registry">{% if not up %}<span class="dim">not checked</span>{% elif up.state.value == "newer" %}<span class="st st-inv"><span class="g" aria-hidden="true">! </span>newer: built {{ up.upstream_day }}</span>{% elif up.state.value == "current" %}<span class="st st-ok"><span class="g" aria-hidden="true">✓ </span>newest</span>{% elif up.state.value == "not pulled" %}<span class="dim">not pulled</span>{% else %}<span class="dim">unknown: {{ up.why }}</span>{% endif %}</td>
+      <td data-label="Used by">{% for n in row.instances %}<a href="/instances/{{ n }}">{{ n }}</a>{% if not loop.last %}, {% endif %}{% else %}<span class="dim">none</span>{% endfor %}</td>
+      <td class="actions">
+        {% if row.local or row.instances %}
+        <form class="inline" method="post" action="/system/engines/update" onsubmit='return confirm({{ ("Pull the newest " ~ row.engine.value ~ " build (a few GB) and test it? The test starts a copy of the smallest instance; instances keep running.") | tojson }})'><input type="hidden" name="engine" value="{{ row.engine.value }}"><button class="btn" {% if busy %}disabled{% endif %}>Update</button></form>
+        {% if row.local and official[row.engine] == row.image %}<form class="inline" method="post" action="/system/engines/{{ row.engine.value }}/test" onsubmit='return confirm({{ ("Test the current " ~ row.engine.value ~ " build on a copy of its smallest instance? It loads a model for a minute or two.") | tojson }})'><button class="btn quiet" {% if busy %}disabled{% endif %}>Test</button></form>{% endif %}
+        {% endif %}
+        {% if row.can_roll_back %}<form class="inline" method="post" action="/system/engines/{{ row.engine.value }}/rollback" onsubmit='return confirm({{ ("Point " ~ row.engine.value ~ " back at the build the last update replaced?") | tojson }})'><button class="btn danger" {% if busy %}disabled{% endif %}>Roll back</button></form>{% endif %}
+      </td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% set checking_now = checking and checking.state == JobState.RUNNING %}
+  {% if checking %}{% with job = checking %}{% include "_job.html" %}{% endwith %}{% endif %}
+  <form method="post" action="/system/engines/check" class="row mt">
+    <button class="btn" {% if checking_now %}disabled{% endif %}>Check for newer builds</button>
+    <span class="hint">The same as <code>mnm engines check</code>: asks the registry, pulls nothing.</span>
+  </form>
+  <form method="post" action="/system/engines/update" class="row mt" onsubmit='return confirm({{ "Pull the newest build of every engine this box has or uses (a few GB each) and test each one that changed?" | tojson }})'>
+    <button class="btn primary" {% if busy %}disabled{% endif %}>Update every engine</button>
+    <span class="hint">The same as <code>mnm engines update</code>; <code>mnm engines rollback &lt;engine&gt;</code> undoes the last one.</span>
+  </form>
+</section>
+{% endblock %}

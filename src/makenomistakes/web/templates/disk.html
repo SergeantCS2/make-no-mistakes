@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% set tab = "system" %}
+{% block title %}Disk · makenomistakes{% endblock %}
+{% block subtabs %}{% include "_system_tabs.html" %}{% endblock %}
+{% block body %}
+{% set policy = report.policy %}{% set gauge = policy.gauge %}
+<section class="panel double" aria-labelledby="disk-title">
+  <h1 class="panel-title" id="disk-title">Disk</h1>
+  <p class="hint">The same report as <code>mnm disk</code>, read now. The models folder <code>{{ report.models_dir }}</code> holds {{ gb(report.held_bytes) }}; its disk: {{ gb(report.disk_total_bytes - report.disk_free_bytes) }} used, {{ gb(report.disk_free_bytes) }} free.</p>
+  <h2 class="sub-head">Disk policy</h2>
+  {% if not policy.keep.on %}<p class="okline">Off: nothing is ever deleted. <code>mnm disk keep --models 85%</code> turns it on.</p>
+  {% elif gauge %}
+  <p class="{{ 'warnline' if policy.level.value != 'ok' else 'okline' }}">{{ policy.keep.words }}: {{ gauge.subject }}. Warnings from {{ "%g" | format(gauge.warnings[0]) }}% and {{ "%g" | format(gauge.warnings[1]) }}%; at {{ "%g" | format(gauge.limit) }}% the least recently used instances' own files go, until under {{ "%g" | format(gauge.target) }}%. <code>mnm disk keep --models off</code> turns it off.</p>
+  {% endif %}
+  {% if policy.keep.on %}
+  <p>Next to go, least recently used first: <b class="hi">{{ policy.next | join(", ") if policy.next else "none" }}</b></p>
+  {% if policy.held %}<details><summary>Staying ({{ policy.held | length }})</summary><ul>{% for why in policy.held %}<li>{{ why }}</li>{% endfor %}</ul></details>{% endif %}
+  {% endif %}
+  {% if policy.evictions %}
+  <div class="table-scroll"><table>
+    <thead><tr><th>Evicted</th><th>Instance</th><th>Freed</th><th>Files</th><th>At</th></tr></thead>
+    <tbody>{% for e in policy.evictions | reverse %}<tr><td class="nowrap">{{ when(e.at) }}</td><td class="hi">{{ e.name }}</td><td>{{ gb(e.freed_bytes) }}</td><td>{{ e.files }}</td><td>{{ e.where }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+  <h2 class="sub-head">By instance</h2>
+  {% if report.instances %}
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>Name</th><th>Own</th><th>Shared</th><th>Saved prompts</th><th>Files</th><th>State</th><th>Last used</th></tr></thead>
+    <tbody>{% for i in report.instances %}<tr><td data-label="Name" class="hi"><a href="/instances/{{ i.name }}">{{ i.name }}</a></td><td data-label="Own">{{ gb(i.own_bytes) }}</td><td data-label="Shared">{% if i.shared %}{{ gb(i.shared_bytes) }} with {{ i.shared | map(attribute="users") | sum(start=[]) | unique | join(", ") }}{% else %}-{% endif %}</td><td data-label="Saved prompts">{% if i.prompt_bytes %}{{ gb(i.prompt_bytes) }}{% else %}-{% endif %}</td><td data-label="Files">{{ i.files }}</td><td data-label="State">{{ i.state }}</td><td data-label="Last used" class="nowrap">{{ when(i.last_used) }} ({{ i.last_used_from }})</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="hint">No instances saved.</p>{% endif %}
+  <h2 class="sub-head">By folder</h2>
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>Folder</th><th>Size</th><th>Files</th></tr></thead>
+    <tbody>
+    {% for f in report.sources %}<tr><td data-label="Folder" class="hi">{{ f.label }}</td><td data-label="Size">{{ gb(f.size_bytes) }}</td><td data-label="Files">{{ f.files }}</td></tr>{% endfor %}
+    {% for f in report.workflows %}<tr><td data-label="Folder">{{ f.label }}</td><td data-label="Size">{{ gb(f.size_bytes) }}</td><td data-label="Files">{{ f.files }}</td></tr>{% endfor %}
+    {% for f in report.other %}<tr><td data-label="Folder">{{ f.label }} (not mnm's)</td><td data-label="Size">{{ gb(f.size_bytes) }}</td><td data-label="Files">{{ f.files }}</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+  <h2 class="sub-head">Unlisted</h2>
+  {% if report.unlisted %}
+  <p class="hint">{{ report.unlisted | length }} files, {{ gb(report.unlisted_bytes) }}, that no instance, workflow or LoRA lists (what <code>mnm rm</code> without <code>--files</code> leaves, a download cut short). The disk policy never deletes them.</p>
+  <details><summary>The files</summary><div class="table-scroll"><table>
+    <thead><tr><th>Size</th><th>Path</th><th>Why</th></tr></thead>
+    <tbody>{% for f in report.unlisted %}<tr><td class="nowrap">{{ gb(f.size_bytes) }}</td><td><code>{{ f.path }}</code></td><td>{{ f.why }}</td></tr>{% endfor %}</tbody>
+  </table></div></details>
+  {% else %}<p class="okline">None: every file in the download folders is listed.</p>{% endif %}
+  <h2 class="sub-head">Other folders</h2>
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>Folder</th><th>Path</th><th>Size</th></tr></thead>
+    <tbody>{% for f in report.folders %}<tr><td data-label="Folder" class="hi">{{ f.label }}</td><td data-label="Path"><code>{{ f.path }}</code></td><td data-label="Size">{{ gb(f.size_bytes) if f.exists else "not there" }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% for note in report.notes %}<p class="warnline">{{ note }}</p>{% endfor %}
+</section>
+{% endblock %}

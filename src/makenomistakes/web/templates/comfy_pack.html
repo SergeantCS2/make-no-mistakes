@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% set tab = "comfy" %}
+{% block title %}{{ found.pack }} · makenomistakes{% endblock %}
+{% set page = ("/comfy/packs-github?ref=" ~ (found.github.words | urlencode)) if found.github else ("/comfy/packs/" ~ found.pack) %}
+{% block subtabs %}<a href="/comfy">All workflows</a><a href="/comfy/packs">Node packs</a><a href="{{ page }}" aria-current="page">{{ found.pack }}</a>{% endblock %}
+{% block body %}
+<section class="panel double" aria-labelledby="p-title">
+  <h1 class="panel-title" id="p-title">{{ found.pack }} <span class="hint">{{ found.version }}</span></h1>
+  {% for r in found.refusals %}<div class="error">Refused: {{ r }}</div>{% endfor %}
+  {% for n in found.notes %}<div class="warnline">{{ n }}</div>{% endfor %}
+  <dl class="kv">
+    {% if found.row %}<dt>Vetted by mnm</dt><dd>{{ found.row.what }} ({{ found.row.licence }})</dd>{% endif %}
+    {% if found.node %}
+    <dt>Source</dt><dd>{% if found.node.repository %}<a href="{{ found.node.repository }}" rel="noopener noreferrer">{{ found.node.repository }}</a>{% else %}not stated{% endif %}</dd>
+    <dt>Licence</dt><dd>{{ found.licence }}</dd>
+    <dt>Publisher</dt><dd>{{ found.node.publisher.id if found.node.publisher else "unknown" }}</dd>
+    <dt>Downloads</dt><dd>{{ "{:,}".format(found.node.downloads) }} · {{ "{:,}".format(found.node.github_stars) }} stars</dd>
+    {% endif %}
+    {% if found.github %}
+    <dt>Source</dt><dd><a href="{{ found.github.url }}" rel="noopener noreferrer">{{ found.github.url }}</a> <span class="hint">GitHub, not the Registry: pinned to {{ "the release " ~ found.github.ref if found.version == found.github.ref else "a commit" }}</span></dd>
+    {% endif %}
+    {% if found.fetched %}
+    <dt>Commit</dt><dd><code>{{ found.fetched.commit }}</code></dd>
+    <dt>Packed</dt><dd><code>sha256 {{ found.fetched.sha256 }}</code> <span class="hint">mnm's own zip of that commit: what the approval pins</span></dd>
+    <dt>Licence</dt><dd>{{ found.licence }} <span class="hint">its LICENSE file</span></dd>
+    <dt>pip packages</dt><dd>{{ found.fetched.requirements | join(", ") or "none" }}</dd>
+    {% endif %}
+    {% if found.facts %}<dt>GitHub</dt><dd>{{ "{:,}".format(found.facts.stargazers_count) }} stars · {{ "{:,}".format(found.facts.open_issues_count) }} open issues{% if found.facts.archived %} · archived{% endif %}</dd>{% endif %}
+    {% if found.release %}
+    <dt>pip packages</dt><dd>{{ (found.release.dependencies or []) | join(", ") or "none listed" }}</dd>
+    <dt>Download</dt><dd><code>{{ found.release.downloadUrl }}</code></dd>
+    {% endif %}
+  </dl>
+  {% if found.ok %}
+  {% if not found.row %}<p class="warnline">{{ sandbox_note }}</p>{% endif %}
+  <form method="post" action="{{ '/comfy/packs-github/approve' if found.github else '/comfy/packs/' ~ found.pack ~ '/approve' }}" class="row">
+    {% if found.github %}<input type="hidden" name="ref" value="{{ found.github.words }}"><input type="hidden" name="commit" value="{{ found.fetched.commit }}"><input type="hidden" name="sha256" value="{{ found.fetched.sha256 }}">{% else %}<input type="hidden" name="version" value="{{ found.version }}">{% endif %}<input type="hidden" name="confirm" value="yes">
+    <button class="btn primary">{% if found.row %}Add{% else %}Approve{% endif %} {% if found.github %}at {{ found.version }}{% else %}{{ found.pack }} {{ found.version }}{% endif %}</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

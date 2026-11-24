@@ -1,0 +1,23 @@
+<section class="tabpanel panel" id="loras" data-tabpanel aria-labelledby="lora-title">
+  <h2 class="panel-title" id="lora-title">LoRAs</h2>
+  <p class="hint">Add-ons trained for a style, character or concept; they only work on the base family they were trained for{% if recipe.image_family.value != 'unknown' %}: this instance runs <b class="hi">{{ family_labels[recipe.image_family] }}</b>{% endif %}. Pick them per image on <a href="{{ browser_origin(recipe) }}/" target="_blank" rel="noopener">the engine page</a> (listed there as soon as they are added). An always-on LoRA applies to every request, Odysseus's included, from the next start.</p>
+  {% if recipe.loras %}<div class="table-scroll"><table>
+    <thead><tr><th>Name</th><th>Base</th><th>Weight · always on</th><th><span class="sr-only">Actions</span></th></tr></thead>
+    <tbody>{% for l in recipe.loras %}<tr>
+      <td><a href="{{ repo_page(l.repo_id, l.revision) }}" target="_blank" rel="noopener" title="{{ l.repo_id }}/{{ l.path }} on {{ repo_site(l.repo_id) }}">{{ l.name }}</a> <span class="hint">{{ "%.0f" | format(l.size_bytes / 1048576) }} MB</span></td>
+      <td>{{ family_labels[l.family] }}</td>
+      <td><form class="inline row" method="post" action="/instances/{{ recipe.name }}/loras/{{ l.name }}">
+        <input type="text" name="weight" value="{{ '%g' | format(l.weight) }}" size="4" inputmode="decimal" aria-label="weight of {{ l.name }}">
+        <label class="check"><input type="checkbox" name="always_on" value="on" {% if l.always_on %}checked{% endif %}> always on</label>
+        <button class="btn">Save</button></form></td>
+      <td><form class="inline" method="post" action="/instances/{{ recipe.name }}/loras/{{ l.name }}/remove" onsubmit='return confirm({{ ("Stop offering " ~ l.name ~ "? The file stays downloaded.") | tojson }})'><button class="btn danger">Remove</button></form></td>
+    </tr>{% endfor %}</tbody>
+  </table></div>{% else %}<p class="dim">None yet.</p>{% endif %}
+  <form method="post" action="/instances/{{ recipe.name }}/loras" class="stack tight">
+    <div class="prompt"><input type="text" name="reference" placeholder="A LoRA's Hugging Face, Civitai or Civitai Archive link (repo, or the .safetensors file)" required aria-label="LoRA link"></div>
+    <div class="row"><input type="text" name="lora_name" placeholder="name (optional)" size="14" aria-label="LoRA name">
+      <label>weight <input type="text" name="weight" value="1.0" size="4" inputmode="decimal"></label>
+      <label class="check"><input type="checkbox" name="always_on" value="on"> always on</label>
+      <button class="btn primary">Add LoRA</button></div>
+  </form>
+</section>

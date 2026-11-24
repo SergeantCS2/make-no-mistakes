@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% set tab = "comfy" %}
+{% block title %}Workflows · makenomistakes{% endblock %}
+{% block subtabs %}<a href="/comfy" aria-current="page">All workflows</a><a href="#import">Import</a><a href="/comfy/packs">Node packs</a><a href="/system/comfyui">ComfyUI</a>{% endblock %}
+{% block body %}
+<section class="panel double" aria-labelledby="cw-title">
+  <h1 class="panel-title" id="cw-title">Workflows <span class="hint">ComfyUI · mnm comfyui workflow</span></h1>
+  <p class="hint">Workflows from comfy.org, Civitai, Hugging Face or GitHub, run here by ComfyUI with no internet. Import one, see what it needs, fill in its form, press Run.</p>
+  {% if unread %}<div class="warnline">{{ unread }} <a href="/system/comfyui">System → ComfyUI</a>{% if state.value == "not installed" %} (about 9 GB). You can import and read workflows before that{% else %}, so mnm can check each workflow's nodes{% endif %}.</div>{% endif %}
+  {% if removed %}<div class="okline" role="status">{% if before %}{{ removed }} was removed before{% else %}Removed workflow {{ removed }}{% endif %}{% if freed %}; {{ size_words(freed) }} of its model files deleted{% endif %}.</div>
+  {% if kept %}<div class="warnline" role="status">Its model files stay: another workflow cannot be read and may use them. Fix or remove it, then <code>mnm comfyui workflow rm --files {{ removed }}</code> frees them.</div>{% endif %}{% endif %}
+  {% for p in problems %}<p class="warnline">Not readable: {{ p }}</p>{% endfor %}
+  {% if not rows %}<div class="empty"><h2>No workflows yet</h2><p>Import one below.</p></div>{% endif %}
+  {% if rows %}<div class="table-scroll"><table class="board">
+    <thead><tr><th>Workflow</th><th>From</th><th>Needs</th></tr></thead>
+    <tbody>{% for meta, report in rows %}<tr>
+      <td class="name"><a class="inst" href="/comfy/{{ meta.name }}">{{ meta.name }}</a></td>
+      <td class="hint">{{ meta.source | truncate(60) }}</td>
+      <td>{% if report is none %}<span class="st st-bad">unreadable</span>
+        {% elif report.problems %}<span class="st st-bad"><span class="g" aria-hidden="true">✕</span>refused</span>
+        {% elif checked and report.runnable %}<span class="st st-ok"><span class="g" aria-hidden="true">✓</span>runs here</span> <span class="hint">{% with n = report.models | length %}{% if n == 0 %}no model files{% elif n == 1 %}1 model file{% else %}{{ n }} model files{% endif %}{% endwith %}</span>
+        {% else %}{{ report.packs | rejectattr("installed") | list | length }} packs to install, {{ report.models | length }} model files{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>{% endif %}
+</section>
+<section class="panel" id="import" aria-labelledby="im-title">
+  <h2 class="panel-title" id="im-title">Import</h2>
+  <form method="post" action="/comfy/import" enctype="multipart/form-data" class="stack tight">
+    <label for="link">A link <span class="hint">comfy.org/workflows/…, civitai.com/models/…, huggingface.co/…/blob/…/x.json, github.com/…/blob/…/x.json</span></label>
+    <input type="text" id="link" name="link" class="wide" maxlength="2000">
+    <label>Or a file <span class="hint">.json, a .png ComfyUI saved, a .zip</span><br><input type="file" name="file" accept=".json,.png,.zip"></label>
+    <div><button class="btn primary">Import</button> <span class="hint">Nothing is installed or downloaded but the workflow file.</span></div>
+  </form>
+</section>
+{% endblock %}

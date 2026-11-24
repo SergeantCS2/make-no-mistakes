@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% set tab = "system" %}
+{% block title %}System · makenomistakes{% endblock %}
+{% block subtabs %}{% include "_system_tabs.html" %}{% endblock %}
+{% block body %}
+{% set pf = platform() %}
+<div class="split">
+  <section class="panel double" aria-labelledby="r-title">
+    <h1 class="panel-title" id="r-title">Router</h1>
+    {% if router.up %}<p><span class="st st-ok"><span class="g" aria-hidden="true">●</span>up</span> on port <b class="hi">{{ router.port }}</b>: the one URL every client uses (<code>{{ router_url() }}</code>).</p>
+    {% else %}<p><span class="st st-bad"><span class="g" aria-hidden="true">✕</span>down</span> Nothing answers on port {{ router.port }}: no client reaches any model. <code>mnm service install</code> runs it as a service (or <code>mnm router</code> in a terminal).</p>{% endif %}
+    <dl class="kv">
+      <dt>Listens on</dt><dd>{{ router.host }}{% if router.exposure %} · {{ exposure_words[router.exposure] }}{% else %} · <span class="st st-bad">not a valid setting</span> (the doctor says why){% endif %}</dd>
+      <dt>Key</dt><dd>{% if router.key_required %}<span class="st st-ok"><span class="g" aria-hidden="true">●</span>required</span> MNM_API_KEY is set; cards say "your MNM_API_KEY" and never print it{% else %}<span class="st st-dim">none</span> any client on the router's network may use it{% endif %}</dd>
+      <dt>In flight</dt><dd>{% if router.busy %}{% for n, c in router.busy.items() %}<a href="/instances/{{ n }}">{{ n }}</a>: {{ c }}{% if not loop.last %}, {% endif %}{% endfor %}{% elif router.up %}nothing{% else %}-{% endif %}{% if router.arrivals is not none %} <span class="hint">({{ router.arrivals }} requests since it started)</span>{% endif %}</dd>
+      <dt>Idle unload</dt><dd>every 30 s the router parks a ready instance idle longer than its <em>Unload when idle</em> setting, unless <em>Keep loaded</em> is always (each instance's Settings)</dd>
+      {% set queue = tuning_queue() %}{% set tuning_now = tuning_line() %}
+      <dt>Tuning</dt><dd>{% if tuning_now %}{{ tuning_now }}{% else %}no tune running{% endif %}{% if queue %}; queued: {% for q in queue %}<a href="/instances/{{ q.name }}#tuning">{{ q.name }}</a> ({{ q.reason }}{% set closing = tuning_closing(q) %}{% if closing %}, {{ closing }}{% elif q.now %}, now{% endif %}){% if not loop.last %}, {% endif %}{% endfor %}{% endif %} <span class="hint">starts once the router has been idle a minute (<code>mnm tune --status</code>)</span></dd>
+    </dl>
+    <h2 class="sub-head" id="activity">Activity</h2>
+    {% if router.events %}
+    <p class="hint">The router's newest {{ router.events | length }} lines, newest first: loads and their seconds, what it parked for room, idle unloads, every request it refused itself and every <code>/mcp</code> call. Proxied answers that succeeded are not listed. A restart of the router starts this list again; <em>Service log</em> below has the rest.</p>
+    <div class="table-scroll events"><table>
+      <thead><tr><th>Time</th><th>What the router did</th></tr></thead>
+      <tbody>{% for e in router.events %}<tr><td class="nowrap">{{ e.at.strftime("%m-%d %H:%M:%S") }}</td><td>{{ e.line }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% elif router.up %}<p class="hint">Nothing yet since the router started: a load, a park, an idle unload, a refusal or an <code>/mcp</code> call each leave a line here.</p>
+    {% else %}<p class="hint">-</p>{% endif %}
+  </section>
+  <section class="panel" aria-labelledby="s-title">
+    <h2 class="panel-title" id="s-title">Services</h2>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Unit</th><th>State</th></tr></thead>
+      <tbody>{% for unit, state in units %}<tr><td><code>{{ unit }}</code></td><td>{% set b = unit_badge(state) %}<span class="{{ b.css }}"><span class="g" aria-hidden="true">{{ b.glyph }}</span>{{ b.word }}</span>{% if b.title %} <span class="hint">{{ b.title }}</span>{% endif %}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <p class="hint">These restart this very page, so they run in {{ pf.terminal }}:</p>
+    <pre>mnm update            # git pull, uv sync, restart both services
+mnm service install   # write and (re)start both units
+mnm service status</pre>
+    <dl class="kv"><dt>Version</dt><dd>{{ version }}{% if revision %} · commit <code>{{ revision }}</code>{% endif %}</dd>
+      <dt>Web UI</dt><dd>up {{ uptime }} · {{ pf.label }}</dd></dl>
+    <p class="hint">Jobs (downloads, starts, tests) live in this process: a restart forgets them. A half download resumes on the next Start.</p>
+  </section>
+</div>
+<section class="panel" aria-labelledby="set-title">
+  <h2 class="panel-title" id="set-title">Settings</h2>
+  <p class="hint">From <code>~/.config/makenomistakes/secrets.env</code> and the environment. Tokens and the key show set or not set, never a value.</p>
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>Name</th><th>State</th><th>What it is for</th></tr></thead>
+    <tbody>{% for row in settings_rows %}<tr><td data-label="Name"><code>{{ row.name }}</code></td><td data-label="State">{% if row.shown is not none %}<span class="hi">{{ row.shown }}</span>{% elif row.is_set %}<span class="st st-ok"><span class="g" aria-hidden="true">●</span>set</span>{% else %}<span class="st st-off"><span class="g" aria-hidden="true">○</span>not set</span>{% endif %}</td><td data-label="For" class="dim">{{ row.what }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  <p class="hint"><code>mnm setup</code> stores a token or a key (it asks; it needs {{ pf.terminal }}). Tokens are read at every request: no restart.</p>
+</section>
+<section class="panel" id="mcp" aria-labelledby="mcp-title">
+  <h2 class="panel-title" id="mcp-title">Odysseus over MCP <span class="hint">mnm mcp</span></h2>
+  <p class="hint">The router serves mnm's workflows and the short film as tools at <code>/mcp</code>; a chat in Odysseus can run them once it is added there.</p>
+  <pre class="wrap">{{ mcp_card | join("\n") }}</pre>
+  <p>Tools now: {% if mcp_tools is none %}<span class="hint">they could not be read (<code>mnm mcp tools</code> says why)</span>{% else %}{% for name in mcp_tools %}<code>{{ name }}</code>{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}</p>
+</section>
+<section class="panel" id="journal" aria-labelledby="j-title">
+  <h2 class="panel-title" id="j-title">Service log <span class="hint">mnm service logs</span></h2>
+  <div class="row">{% for n in journal_lines %}<button type="button" class="btn quiet" hx-get="/system/journal?lines={{ n }}" hx-target="#journal-text" hx-swap="outerHTML">Last {{ n }}</button>{% endfor %}</div>
+  <div id="journal-text"><p class="hint">Press a button to read the web UI's and the router's newest lines.</p></div>
+</section>
+{% endblock %}

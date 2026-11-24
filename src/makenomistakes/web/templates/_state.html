@@ -1,0 +1,1 @@
+{% set b = state_badge(status, job if job is defined else none) %}<span class="{{ b.css }}" title="{{ b.title }}"><span class="g" aria-hidden="true">{{ b.glyph }}</span><span class="flap" data-key="state:{{ status.recipe.name }}" aria-hidden="true">{{ b.word }}</span><span class="sr-only">{{ b.word }}</span></span>

@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+{% set tab = "runs" %}
+{% block title %}{{ run.id }} · makenomistakes{% endblock %}
+{% block subtabs %}<a href="/runs">All runs</a><a href="/songs">Songs</a><a href="/songs/{{ run.id }}" aria-current="page">{{ run.id }}</a>{% endblock %}
+{% block body %}
+{% from "_wave.html" import wave, parts_bar %}
+{% set base = "/runs/" ~ run.id ~ "/files/" %}
+{% set busy = job and job.running %}
+<section class="panel double" aria-labelledby="s-title">
+  <h1 class="panel-title" id="s-title">{% if lyrics and lyrics.title %}{{ lyrics.title }}{% else %}Song{% endif %} <span class="hint">{{ run.id }}</span></h1>
+  <p>{{ run.prompt }}</p>
+  <p class="hint">{{ run.settings.get("seconds") }} s · {{ run.settings.get("candidates") }} candidates · {{ run.settings.get("tier") }} tier · lyrics by {% if run.settings.get("chat_instance") %}<a href="/instances/{{ run.settings.chat_instance }}">{{ run.settings.chat_instance }}</a>{% else %}you{% endif %} · song by {% if sung_workflow %}the ComfyUI workflow <a href="/comfy/{{ sung_workflow }}">{{ sung_workflow }}</a>{% elif run.settings.get("song_instance") %}<a href="/instances/{{ run.settings.song_instance }}">{{ run.settings.song_instance }}</a>{% else %}an instance not recorded{% endif %}{% if run.settings.get("recording") %} · your recording as {{ run.settings.recording }}{% endif %}</p>
+  {% if busy %}{% include "_job.html" %}{% endif %}
+  {% for note in run.notes %}<p class="warnline">{{ note }}</p>{% endfor %}
+  {% if run.state == RunState.FAILED %}<div class="error">{{ run.error }}</div>
+  <form class="inline" method="post" action="/songs/{{ run.id }}/resume"><button class="btn primary">Resume</button></form>
+  {% elif run.interrupted %}<div class="warnline">This run was interrupted (the web UI restarted, or its terminal closed).</div>
+  <form class="inline" method="post" action="/songs/{{ run.id }}/resume"><button class="btn primary">Resume</button></form>
+  {% elif "mix.wav" in run.outputs | map(attribute="name") | list and not run.files_removed %}
+  {% set mix_src = ("/runs/" ~ mix_in_use ~ "/files/mix.wav") if mix_in_use else (base ~ "mix.wav") %}
+  <div class="media"><audio id="a-mix" src="{{ mix_src }}" controls preload="none"></audio> <a href="{{ mix_src }}" download>mix.wav</a> <span class="hint">{% if mix_in_use %}the mixer's render in use ({{ levels.words() }}){% else %}the stems summed, as made{% endif %} (the export's mix is at the loudness line)</span></div>
+  {{ wave(waves.get(mix_in_use or "mix.wav"), "a-mix") }}{% if structure %}{{ parts_bar(structure) }}{% endif %}
+  {% endif %}
+  {% if tools_missing %}<p class="warnline">{{ tools_missing }}</p>{% endif %}
+</section>
+
+{% if run.state == RunState.WAITING and run.waiting_at == "lyrics" and lyrics %}
+<section class="panel double" aria-labelledby="ly-title">
+  <h2 class="panel-title" id="ly-title">Your turn: the lyrics</h2>
+  <p class="hint">Change any section, empty a section's lines to drop it, then <strong>Save lyrics</strong>; or paste the whole under <strong>Replace all</strong>. <strong>Sing them</strong> makes the candidates.</p>
+  <form method="post" action="/songs/{{ run.id }}/lyrics" class="stack tight">
+    <label>Title <input type="text" name="title" value="{{ lyrics.title }}" maxlength="200" class="wide"></label>
+    <label>Style <input type="text" name="tags" value="{{ lyrics.tags }}" maxlength="600" class="wide" required></label>
+    {% for section in lyrics.sections %}{% set i = loop.index0 %}
+    <fieldset class="shot"><legend>Section {{ loop.index }}</legend>
+      <label>Label <input type="text" name="label_{{ i }}" value="{{ section.label }}" maxlength="40"></label>
+      <label>Lines <textarea name="lines_{{ i }}" rows="{{ section.lines | length + 1 }}" class="wide">{{ section.lines | join("\n") }}</textarea></label>
+    </fieldset>
+    {% endfor %}
+    <fieldset class="shot"><legend>New section</legend>
+      <label>Label <input type="text" name="label_{{ lyrics.sections | length }}" maxlength="40" placeholder="Bridge"></label>
+      <label>Lines <textarea name="lines_{{ lyrics.sections | length }}" rows="2" class="wide"></textarea></label>
+    </fieldset>
+    <div><button class="btn">Save lyrics</button></div>
+  </form>
+  <form method="post" action="/songs/{{ run.id }}/lyrics" class="stack tight">
+    <input type="hidden" name="title" value="{{ lyrics.title }}"><input type="hidden" name="tags" value="{{ lyrics.tags }}">
+    <label>Replace all <span class="hint">(a header like [Chorus] above each section's lines)</span><textarea name="whole" rows="8" class="wide" required>{{ lyrics.sung() }}</textarea></label>
+    <div><button class="btn">Replace all</button></div>
+  </form>
+  <div class="actions">
+    <form class="inline" method="post" action="/songs/{{ run.id }}/go"><button class="btn primary"{% if busy %} disabled{% endif %}>Sing them</button></form>
+    <form class="inline" method="post" action="/songs/{{ run.id }}/redo"><input type="hidden" name="stage" value="lyrics"><button class="btn"{% if busy %} disabled{% endif %}>Write new lyrics</button></form>
+  </div>
+</section>
+{% endif %}
+
+{% if candidates | selectattr("1") | list %}
+<section class="panel double" aria-labelledby="c-title">
+  <h2 class="panel-title" id="c-title">{% if run.state == RunState.WAITING and run.waiting_at in picks %}Your turn: pick a candidate{% else %}Candidates{% endif %}</h2>
+  {% set scored = candidates | map(attribute="1") | select | selectattr("score", "ne", none) | list %}
+  {% set top = (scored | map(attribute="score") | max) if scored else none %}
+  <p class="hint">Each is the same lyrics and style with its own seed. <strong>Pick</strong> maps its structure, splits it into stems, mixes them and exports; <strong>Make again</strong> replaces one. {% if scored %}The score is the studio scorer's (Audiobox Aesthetics: the mean of enjoyment and production quality, about 1 to 10), relative between these candidates; your ear decides.{% elif pick_stage == "score" %}No scores: the scorer comes with the studio tools (<code>mnm studio install</code>, or System → Studio).{% endif %}</p>
+  {% if pick_stage == "score" and not busy and run.state != RunState.RUNNING %}<form class="inline" method="post" action="/songs/{{ run.id }}/score"><button class="btn quiet">{% if scored %}Score them again{% else %}Score them{% endif %}</button></form>{% endif %}
+  <div class="run-grid">
+  {% for step, child in candidates %}
+    <article class="run-card{% if picked == step.index %} picked{% endif %}">
+      <header class="run-head"><span class="hi">Candidate {{ step.index + 1 }}{% if picked == step.index %} · picked{% endif %}</span>
+        <span class="hint">{{ step.state.value }}{% if step.seconds %} · {{ "%.0f" | format(step.seconds) }} s{% endif %}{% if child and seeds.get(child.id) %} · seed {{ seeds[child.id] }}{% endif %}</span></header>
+      {% if step.error %}<p class="error">{{ step.error }}</p>{% endif %}
+      {% if child and child.state == RunState.DONE and not child.files_removed %}
+      <div class="media"><audio id="a-{{ child.id }}" src="/runs/{{ child.id }}/files/song.wav" controls preload="none"></audio></div>
+      {{ wave(waves.get(child.id), "a-" ~ child.id) }}
+      {% if child.score is not none %}<p><b class="hi">score {{ "%.2f" | format(child.score) }}</b>{% if top is not none and child.score == top and scored | length > 1 %} <span class="st st-inv">highest</span>{% endif %} <span class="hint">{% for axis, word in axis_words.items() if axis in child.score_axes %}{{ word }} {{ "%.1f" | format(child.score_axes[axis]) }}{% if not loop.last %} · {% endif %}{% endfor %}</span></p>{% endif %}
+      {% endif %}
+      <div class="actions">
+        {% if child and child.state == RunState.DONE and run.state != RunState.RUNNING %}
+        <form class="inline" method="post" action="/songs/{{ run.id }}/pick"><input type="hidden" name="number" value="{{ step.index + 1 }}"><button class="btn{% if picked != step.index %} primary{% endif %}"{% if busy %} disabled{% endif %}>{% if picked == step.index %}Picked{% else %}Pick{% endif %}</button></form>
+        {% endif %}
+        {% if run.state != RunState.RUNNING and step.state.value in ("done", "failed") %}
+        <form class="inline" method="post" action="/songs/{{ run.id }}/redo" onsubmit='return confirm({{ ("Make candidate " ~ (step.index + 1) ~ " again? The one you hear now is deleted.") | tojson }})'><input type="hidden" name="stage" value="song"><input type="hidden" name="index" value="{{ step.index }}"><button class="btn quiet"{% if busy %} disabled{% endif %}>Make again</button></form>
+        {% endif %}
+      </div>
+    </article>
+  {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if structure %}
+<section class="panel double" aria-labelledby="sm-title">
+  <h2 class="panel-title" id="sm-title">Structure <span class="hint">{{ structure.analyser }}</span></h2>
+  <p><b class="hi">{{ "%.0f" | format(structure.tempo) }} BPM</b> · {{ structure.beats_per_bar }}/4 · {{ structure.downbeats | length }} bars · parts {% for part in structure.sections %}<span class="st st-inv">{{ part.label }}</span> {{ "%.0f" | format(part.start) }}–{{ "%.0f" | format(part.end) }} s{% if not loop.last %}, {% endif %}{% endfor %}</p>
+  <p class="hint">Measured from the picked take: a part repeated sounds alike, so it takes the same letter. The REAPER project gets this tempo, meter and a marker at each part; check them by ear.</p>
+</section>
+{% endif %}
+
+{% if take or take_problem %}
+<section class="panel double" aria-labelledby="ed-title">
+  <h2 class="panel-title" id="ed-title">Edits <span class="hint">mnm song edit · mnm song take</span></h2>
+  {% if take_problem %}
+  <p class="warnline">{{ take_problem }}</p>
+  <form class="inline" method="post" action="/songs/{{ run.id }}/take"><input type="hidden" name="take" value=""><button class="btn"{% if busy %} disabled{% endif %}>Use the picked candidate's take</button></form>
+  {% else %}
+  <p>The song uses {% if take.edit %}the edit <b class="hi">{{ take.edit.answer }}</b> <span class="hint">({{ take.edit.id }})</span>{% else %}candidate {{ picked + 1 }}'s take{% endif %}. An edit makes a new take from it with ACE-Step; the song then uses the new one, and its stems, voice, mix and export are made again. Nothing is deleted: any take can be used again.</p>
+  <div class="media"><audio id="a-take" src="/runs/{{ take.run.id }}/files/song.wav" controls preload="none"></audio></div>
+  {{ wave(waves.get(take.run.id), "a-take", edit_ranges) }}{% if structure %}{{ parts_bar(structure) }}{% endif %}
+  <p class="hint">A click on the waveform plays from there and fills a range below: the first click its start, the next its end.</p>
+  {% endif %}
+  {% if edits %}
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>Take</th><th>Edit</th><th>Made from</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td data-label="Take" class="hi">candidate {{ picked + 1 }}</td><td data-label="Edit">the take as sung</td><td data-label="Made from"></td><td data-label="Action">{% if take and not take.edit %}<span class="st">in use</span>{% else %}<form class="inline" method="post" action="/songs/{{ run.id }}/take"><input type="hidden" name="take" value=""><button class="btn"{% if busy %} disabled{% endif %}>Use this take</button></form>{% endif %}</td></tr>
+      {% for edit in edits %}<tr>
+        <td data-label="Take" class="hi">{{ edit.id }}</td>
+        <td data-label="Edit">{% if edit.state.value == "done" %}{{ edit.answer }}{% else %}{{ edit.settings.get("edit", "") }}: <span class="warnline">{{ edit.state.value }}{% if edit.error %}: {{ edit.error }}{% endif %}</span>{% endif %}</td>
+        <td data-label="Made from">{{ edit.settings.get("source", "") }}</td>
+        <td data-label="Action">{% if take and take.edit and take.edit.id == edit.id %}<span class="st">in use</span>{% elif edit.id in refused and refused[edit.id] is none %}<form class="inline" method="post" action="/songs/{{ run.id }}/take"><input type="hidden" name="take" value="{{ edit.id }}"><button class="btn"{% if busy %} disabled{% endif %}>Use this take</button></form>{% elif edit.state.value == "done" and refused.get(edit.id) %}<span class="hint">{{ refused[edit.id] | replace(edit.id ~ " ", "", 1) }}</span>{% endif %}</td>
+      </tr>{% endfor %}
+    </tbody>
+  </table></div>
+  {% endif %}
+  {% if take %}
+  {% for edit_name, ask, form in edit_forms %}
+  <details>
+    <summary>{{ ask.label }}</summary>
+    <form id="edit-{{ edit_name }}" method="post" action="/songs/{{ run.id }}/edit" class="stack tight">
+      <input type="hidden" name="edit" value="{{ edit_name }}">
+      <p class="hint">{{ ask.says }}</p>
+      <div class="role-grid">
+      {% for f in form %}
+        {% if f.kind == "number" %}<label>{{ f.label }} <input type="number" name="{{ f.name }}"{% if f.low is not none %} min="{{ '%g' | format(f.low) }}"{% endif %}{% if f.high is not none %} max="{{ '%g' | format(f.high) }}"{% endif %} step="{{ '%g' | format(f.step or 1) }}" value="{{ f.default }}" size="6"{% if f.required %} required{% endif %}></label>
+        {% elif f.kind == "part" and structure and structure.sections %}<label>{{ f.label }} <select name="{{ f.name }}"><option value="">(the range)</option>{% for part in structure.sections %}<option value="{{ loop.index }}">{{ part.label }}: {{ "%.0f" | format(part.start) }}–{{ "%.0f" | format(part.end) }} s</option>{% endfor %}</select></label>
+        {% elif f.kind == "after" and structure and structure.sections %}<label>{{ f.label }} <select name="{{ f.name }}"><option value="">{{ f.blank }}</option><option value="0">the start</option>{% for part in structure.sections %}<option value="{{ loop.index }}">after {{ loop.index }} ({{ part.label }}, ends {{ "%.0f" | format(part.end) }} s)</option>{% endfor %}</select></label>
+        {% elif f.kind == "section" %}{% if take_lyrics %}<label>{{ f.label }} <select name="{{ f.name }}" required>{% for section in take_lyrics.sections %}<option value="{{ loop.index }}">{{ section.label }}: {{ section.lines[0] }}</option>{% endfor %}</select></label>{% else %}<span class="warnline">The take's lyrics cannot be read: a section cannot be chosen.</span>{% endif %}
+        {% elif f.kind == "choice" %}<label>{{ f.label }} <select name="{{ f.name }}"{% if f.required %} required{% endif %}>{% for choice in f.choices %}<option value="{{ choice }}">{{ choice }}</option>{% endfor %}</select></label>
+        {% endif %}
+      {% endfor %}
+      </div>
+      {% for f in form %}
+        {% if f.kind == "lines" %}<label>{{ f.label }} <span class="hint">(one a line)</span><textarea name="{{ f.name }}" rows="3" maxlength="2000" class="wide"{% if f.required %} required{% endif %}></textarea></label>
+        {% elif f.kind == "text" %}<label>{{ f.label }} <span class="hint">(optional: the take's own when empty)</span><input type="text" name="{{ f.name }}" maxlength="600" class="wide" placeholder="{{ take_lyrics.tags if take_lyrics else '' }}"></label>
+        {% elif f.kind == "check" %}<input type="hidden" name="{{ f.name }}" value="off"><label class="check"><input type="checkbox" name="{{ f.name }}" value="on"{% if f.default == "on" %} checked{% endif %}> {{ f.label }}{% if not structure %} <span class="hint">(no structure map: the range as given)</span>{% endif %}</label>
+        {% endif %}
+      {% endfor %}
+      <div><button class="btn primary"{% if busy %} disabled{% endif %}>{{ ask.label }}</button></div>
+    </form>
+  </details>
+  {% endfor %}
+  {% endif %}
+</section>
+{% endif %}
+
+{% if stems %}
+<section class="panel double" aria-labelledby="st-title">
+  <h2 class="panel-title" id="st-title">Stems <span class="hint">48 kHz, 24-bit</span></h2>
+  {% if missing_waves %}<form class="inline" method="post" action="/songs/{{ run.id }}/draw"><button class="btn quiet"{% if busy %} disabled{% endif %}>Draw waveforms</button></form>{% endif %}
+  <div class="run-grid">
+  {% for name in stems %}
+    <article class="run-card"><header class="run-head"><span class="hi">{{ name[5:-4] }}</span></header>
+      <div class="media"><audio id="a-{{ name[:-4] }}" src="{{ base }}{{ name | urlencode }}" controls preload="none"></audio></div>
+      {{ wave(waves.get(name), "a-" ~ name[:-4]) }}</article>
+  {% endfor %}
+  </div>
+  {% if midi %}<p>MIDI <span class="hint">{{ midi_step.text if midi_step and midi_step.text else "each stem but the drums" }}</span>: {% for name in midi %}<a href="{{ base }}{{ name | urlencode }}" download>{{ name[5:-4] }}.mid</a>{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+</section>
+{% endif %}
+
+{% if "stem-vocals.wav" in stems %}
+<section class="panel double" aria-labelledby="vc-title">
+  <h2 class="panel-title" id="vc-title">Vocals <span class="hint">mnm song vocals</span></h2>
+  <p>{% if vocals_step and vocals_step.state.value == "done" %}{{ vocals_step.text }}{% else %}As the separator gave them.{% endif %}{% if vocals_step and vocals_step.state.value == "failed" %} <span class="warnline">{{ vocals_step.error }}</span>{% endif %}</p>
+  {% if "vocals-raw.wav" in run.outputs | map(attribute="name") | list and not run.files_removed %}
+  <div class="media"><span class="hint">As separated</span> <audio src="{{ base }}vocals-raw.wav" controls preload="none"></audio></div>
+  {% endif %}
+  <form class="inline" method="post" action="/songs/{{ run.id }}/vocals">
+    {% for name in vocals_order %}<label><input type="checkbox" name="clean" value="{{ name }}"{% if name in vocals_asked %} checked{% endif %}> {{ name }}</label> {% endfor %}
+    <span class="hint">· tuning:</span>
+    <label>Key <input type="text" name="key" value="{{ run.settings.get("vocals_key", "") }}" placeholder="the map's" size="9" maxlength="20"></label>
+    <label>Strength <input type="number" name="strength" value="{{ run.settings.get("vocals_strength", "80") }}" min="0" max="100" size="3"></label>
+    <button class="btn"{% if busy %} disabled{% endif %}>Clean</button>
+  </form>
+  <p class="hint">Made again from the separator's vocals each time, in this order: debleed (the separator again), dereverb (<code>mnm add anvuew/dereverb_room</code> once), denoise, de-ess and gate (ffmpeg), tune (the studio tools). None ticked puts them back. The voice, the mix and the export follow.</p>
+</section>
+{% endif %}
+
+{% if "stem-vocals.wav" in stems %}
+<section class="panel double" aria-labelledby="vo-title">
+  <h2 class="panel-title" id="vo-title">Voice <span class="hint">mnm song voice</span></h2>
+  <p>{% if voice_step and voice_step.state.value == "done" %}{{ voice_step.text }}{% elif run.settings.get("voice") %}Sung in {{ run.settings.get("voice") }} when the run reaches its voice step.{% else %}The song model's own voice.{% endif %}{% if voice_step and voice_step.state.value == "failed" %} <span class="warnline">{{ voice_step.error }}</span>{% endif %}</p>
+  {% if "vocals-as-sung.wav" in run.outputs | map(attribute="name") | list and not run.files_removed %}
+  <div class="media"><span class="hint">As the song model sang it</span> <audio src="{{ base }}vocals-as-sung.wav" controls preload="none"></audio></div>
+  {% endif %}
+  {% if voices %}
+  <form class="inline" method="post" action="/songs/{{ run.id }}/voice">
+    <label>Sung in <select name="voice"><option value="">the song model's own voice</option>{% for name in voices %}<option value="{{ name }}"{% if name == run.settings.get("voice") %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+    <label>Semitones <input type="number" name="shift" value="{{ run.settings.get("voice_shift", "0") }}" min="-12" max="12" size="3"></label>
+    <button class="btn"{% if busy %} disabled{% endif %}>Sing it</button>
+  </form>
+  <p class="hint">The vocals stem is sung again in the voice; the mix and the export follow. The stems, the pick and the lyrics stay.</p>
+  {% else %}
+  <p class="hint">The voice library is empty: add your own voice (or one you have the rights to) on <a href="/system/voices">System → Voices</a>, then sing the vocals in it here.</p>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if levels and "mix.wav" in run.outputs | map(attribute="name") | list and not run.files_removed %}
+<section class="panel double" aria-labelledby="mx-title">
+  <h2 class="panel-title" id="mx-title">Mixer <span class="hint">mnm song mix</span></h2>
+  <p class="hint">A level, mute and solo per stem, and its fades. <strong>Render</strong> makes a new mix from the stems as set (the song's own mix stays) and the export uses it; any mix below can be the one in use again. When a stem is soloed only soloed stems sound.</p>
+  <form method="post" action="/songs/{{ run.id }}/mix" class="stack tight">
+    <div class="table-scroll"><table class="board">
+      <thead><tr><th>Stem</th><th>Level dB</th><th>Mute</th><th>Solo</th><th>Fade in s</th><th>Fade out s</th></tr></thead>
+      <tbody>{% for level in levels.levels %}<tr>
+        <td data-label="Stem" class="hi">{{ level.stem }}</td>
+        <td data-label="Level dB"><input type="number" name="gain_{{ level.stem }}" value="{{ level.gain_db }}" min="{{ db_range[0] }}" max="{{ db_range[1] }}" step="0.5" aria-label="{{ level.stem }} level in dB"></td>
+        <td data-label="Mute"><input type="checkbox" name="mute_{{ level.stem }}" value="true"{% if level.mute %} checked{% endif %} aria-label="mute {{ level.stem }}"></td>
+        <td data-label="Solo"><input type="checkbox" name="solo_{{ level.stem }}" value="true"{% if level.solo %} checked{% endif %} aria-label="solo {{ level.stem }}"></td>
+        <td data-label="Fade in s"><input type="number" name="fade_in_{{ level.stem }}" value="{{ level.fade_in }}" min="0" max="{{ max_fade }}" step="0.5" aria-label="{{ level.stem }} fade in, seconds"></td>
+        <td data-label="Fade out s"><input type="number" name="fade_out_{{ level.stem }}" value="{{ level.fade_out }}" min="0" max="{{ max_fade }}" step="0.5" aria-label="{{ level.stem }} fade out, seconds"></td>
+      </tr>{% endfor %}</tbody>
+    </table></div>
+    <div><button class="btn primary"{% if busy %} disabled{% endif %}>Render</button></div>
+  </form>
+  <h3 class="sub-head">Mixes</h3>
+  <ul class="files">
+    <li>The song's own (the stems summed as made){% if not mix_in_use %} <span class="st st-inv">in use</span>{% else %} <form class="inline" method="post" action="/songs/{{ run.id }}/mix/use"><input type="hidden" name="mix" value=""><button class="btn quiet"{% if busy %} disabled{% endif %}>Use</button></form>{% endif %}</li>
+    {% for mix in mixes | reverse %}<li><span class="hint">{{ ago(mix.created_at) }}</span> {{ mix.prompt }}{% if mix.state.value != "done" %} <span class="error">{{ mix.error or mix.state.value }}</span>{% elif mix.id == mix_in_use %} <span class="st st-inv">in use</span>{% else %} <form class="inline" method="post" action="/songs/{{ run.id }}/mix/use"><input type="hidden" name="mix" value="{{ mix.id }}"><button class="btn quiet"{% if busy %} disabled{% endif %}>Use</button></form>{% endif %}
+      {% if mix.state.value == "done" and not mix.files_removed %}<div class="media"><audio id="a-{{ mix.id }}" src="/runs/{{ mix.id }}/files/mix.wav" controls preload="none"></audio></div>{{ wave(waves.get(mix.id), "a-" ~ mix.id) }}{% endif %}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if levels and "mix.wav" in run.outputs | map(attribute="name") | list and not run.files_removed %}
+<section class="panel double" aria-labelledby="ma-title">
+  <h2 class="panel-title" id="ma-title">Master <span class="hint">mnm song master</span></h2>
+  <p class="hint">The mix in use matched to a track you like: its loudness, tone, peak and width (Matchering, on the CPU). The export's mix is then the master as made: the reference sets its loudness, and only the line's true-peak ceiling still applies (a master past it is turned down to it). A FLAC or MP3 fits here; a long WAV goes through <code>mnm song master --reference</code>.</p>
+  {% if mastering.stale %}<p class="warnline">The master {{ mastering.stale }} was made from another mix than the one in use now: master this one again.</p>{% endif %}
+  <form class="inline" method="post" action="/songs/{{ run.id }}/master" enctype="multipart/form-data">
+    <label>Reference <input type="file" name="reference" accept="audio/*"></label>
+    <button class="btn primary"{% if busy %} disabled{% endif %}>Master</button>
+  </form>
+  <ul class="files">
+    <li>No master (the export's loudness line){% if not mastering.in_use %} <span class="st st-inv">in use</span>{% else %} <form class="inline" method="post" action="/songs/{{ run.id }}/master/use"><input type="hidden" name="master" value=""><button class="btn quiet"{% if busy %} disabled{% endif %}>Use</button></form>{% endif %}</li>
+    {% for one in mastering.masters | reverse %}<li><span class="hint">{{ ago(one.created_at) }}</span> {{ one.answer or one.prompt }}{% if one.state.value != "done" %} <span class="error">{{ one.error or one.state.value }}</span>{% elif one.id == mastering.in_use %} <span class="st st-inv">in use</span>{% elif mastering.usable.get(one.id) %} <form class="inline" method="post" action="/songs/{{ run.id }}/master/use"><input type="hidden" name="master" value="{{ one.id }}"><button class="btn quiet"{% if busy %} disabled{% endif %}>Use</button></form>{% endif %}
+      {% if one.state.value == "done" and not one.files_removed %}<div class="media"><audio src="/runs/{{ one.id }}/files/master.wav" controls preload="none"></audio></div>{% endif %}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if run.state == RunState.DONE or exported %}
+<section class="panel double" aria-labelledby="ex-title">
+  <h2 class="panel-title" id="ex-title">Export <span class="hint">mnm song export</span></h2>
+  {% if exported and export_behind %}<p class="warnline">This export was made from another mix than the one in use: Export again.</p>{% endif %}
+  {% if exported %}
+  <ul class="files">{% for name in exported %}<li><a href="/songs/{{ run.id }}/export/{{ name }}" download>{{ name }}</a></li>{% endfor %}</ul>
+  <p class="hint">Open <code>song.rpp</code> in REAPER from this folder (on Windows: <code>\\wsl$</code>); its stems sit beside it.</p>
+  {% endif %}
+  {% if run.disclosure %}<details><summary>disclosure.txt</summary><pre class="joblog">{{ run.disclosure }}</pre></details>{% endif %}
+  <form method="post" action="/songs/{{ run.id }}/export" class="stack tight">
+    <label class="check"><input type="checkbox" name="mp3" value="true"{% if run.settings.get("export_mp3") == "true" %} checked{% endif %}> An MP3 of the mix too</label>
+    <label class="check"><input type="checkbox" name="loudness" value="on"{% if line_on %} checked{% endif %}> The mix at {{ loudness.words() }} (untick: as summed)</label>
+    <label class="check"><input type="checkbox" name="release" value="true"{% if run.settings.get("export_release") == "true" %} checked{% endif %}> Marked for release (where a voice has no consent recorded, a note says so; nothing is refused)</label>
+    <div><button class="btn primary"{% if busy %} disabled{% endif %}>Export again</button></div>
+  </form>
+</section>
+{% endif %}
+
+<section class="panel double" aria-labelledby="steps-title">
+  <h2 class="panel-title" id="steps-title">Steps</h2>
+  <div class="table-scroll"><table class="board">
+    <thead><tr><th>Step</th><th>State</th><th>Made</th><th>Seconds</th><th><span class="sr-only">Again</span></th></tr></thead>
+    <tbody>{% for step in run.steps %}<tr>
+      <td>{{ labels[step.stage] }}{% if step.stage in items %} {{ step.index + 1 }}{% endif %}</td>
+      <td>{{ step.state.value }}{% if step.error %}: <span class="error">{{ step.error }}</span>{% endif %}</td>
+      <td class="hint">{{ step.text | truncate(80) }}</td>
+      <td>{% if step.seconds %}{{ "%.0f" | format(step.seconds) }}{% endif %}</td>
+      <td>{% if step.stage not in ("song", "lyrics") and step.state.value in ("done", "failed", "skipped") and run.state != RunState.RUNNING %}<form class="inline" method="post" action="/songs/{{ run.id }}/redo"><input type="hidden" name="stage" value="{{ step.stage }}"><input type="hidden" name="index" value="{{ step.index }}"><button class="btn quiet"{% if busy %} disabled{% endif %}>Make again</button></form>{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% endblock %}

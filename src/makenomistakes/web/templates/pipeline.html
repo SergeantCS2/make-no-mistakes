@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% set tab = "runs" %}
+{% block title %}{{ run.id }} · makenomistakes{% endblock %}
+{% block subtabs %}<a href="/runs">All runs</a><a href="/pipelines">Pipelines</a><a href="/pipelines/{{ run.id }}" aria-current="page">{{ run.id }}</a>{% endblock %}
+{% block body %}
+{% set base = "/runs/" ~ run.id ~ "/files/" %}
+<section class="panel double" aria-labelledby="p-title">
+  <h1 class="panel-title" id="p-title">{% if shots and shots.title %}{{ shots.title }}{% else %}Short film{% endif %} <span class="hint">{{ run.id }}</span></h1>
+  <p>{{ run.prompt }}</p>
+  <p class="hint">{% for k in ("chat", "image", "video", "voice") if run.settings.get(k) %}{{ k }}: {% if run.settings[k].startswith("comfy:") %}<a href="/comfy/{{ run.settings[k][6:] }}">workflow {{ run.settings[k][6:] }}</a>{% else %}<a href="/instances/{{ run.settings[k] }}">{{ run.settings[k] }}</a>{% endif %}{% if not loop.last %} · {% endif %}{% endfor %} · {{ run.settings.get("shots") }} shots · {{ run.settings.get("style") }}</p>
+  {% if job and job.running %}{% include "_job.html" %}{% endif %}
+  {% if run.state == RunState.FAILED %}<div class="error">{{ run.error }}</div>
+  <form class="inline" method="post" action="/pipelines/{{ run.id }}/resume"><button class="btn primary">Resume</button></form>
+  {% elif run.interrupted %}<div class="warnline">This run was interrupted (the web UI restarted, or its terminal closed).</div>
+  <form class="inline" method="post" action="/pipelines/{{ run.id }}/resume"><button class="btn primary">Resume</button></form>
+  {% elif run.state == RunState.DONE and not run.files_removed %}
+  {% set film_name = (run.files | map(attribute="name") | select("in", film_names) | first) or "film.webm" %}
+  <div class="media"><video src="{{ base }}{{ film_name }}" controls playsinline preload="metadata"></video>
+    <a href="{{ base }}{{ film_name }}" download>{{ film_name }}</a></div>
+  {% endif %}
+</section>
+
+{% if run.state == RunState.WAITING and run.waiting_at == "shotlist" and shots %}
+<section class="panel double" aria-labelledby="rev-title">
+  <h2 class="panel-title" id="rev-title">Your turn: the shot list</h2>
+  <p class="hint">Change any shot, empty a picture prompt to drop that shot, then <strong>Save shots</strong>; <strong>Continue</strong> draws the stills.</p>
+  <form method="post" action="/pipelines/{{ run.id }}/shots" class="stack tight">
+    <label>Title <input type="text" name="title" value="{{ shots.title }}" maxlength="200" class="wide"></label>
+    {% for shot in shots.shots %}{% set i = loop.index0 %}
+    <fieldset class="shot"><legend>Shot {{ loop.index }}</legend>
+      <label>Picture <textarea name="still_{{ i }}" rows="2" class="wide">{{ shot.still_prompt }}</textarea></label>
+      <label>Movement <input type="text" name="motion_{{ i }}" value="{{ shot.motion_prompt }}" class="wide"></label>
+      <label>Line <input type="text" name="line_{{ i }}" value="{{ shot.line }}" class="wide" maxlength="600"></label>
+    </fieldset>
+    {% endfor %}
+    <div><button class="btn">Save shots</button></div>
+  </form>
+  <div class="actions">
+    <form class="inline" method="post" action="/pipelines/{{ run.id }}/go"><button class="btn primary">Continue</button></form>
+    <form class="inline" method="post" action="/pipelines/{{ run.id }}/redo"><input type="hidden" name="stage" value="shotlist"><button class="btn">Write a new shot list</button></form>
+  </div>
+</section>
+{% elif run.state == RunState.WAITING %}
+<section class="panel double" aria-labelledby="rev-title">
+  <h2 class="panel-title" id="rev-title">Your turn: the {{ labels[run.waiting_at] | lower }}</h2>
+  <p class="hint"><strong>Redraw</strong> any you do not like; <strong>Continue</strong> speaks the lines and animates every still (the longest part: minutes per clip).</p>
+  <form class="inline" method="post" action="/pipelines/{{ run.id }}/go"><button class="btn primary">Continue</button></form>
+</section>
+{% endif %}
+
+<section class="panel double" aria-labelledby="steps-title">
+  <h2 class="panel-title" id="steps-title">Steps</h2>
+  {% for stage in stages %}{% set items = run.steps | selectattr("stage", "equalto", stage) | list %}
+  {% if items %}
+  <h3>{{ labels[stage] }}</h3>
+  <div class="run-grid">
+  {% for step in items | sort(attribute="index") %}
+    <article class="run-card">
+      <header class="run-head"><span class="hi">{{ labels[stage] }}{% if stage in per_shot %} {{ step.index + 1 }}{% endif %}</span>
+        <span class="hint">{{ step.state.value }}{% if step.seconds %} · {{ "%.0f" | format(step.seconds) }} s{% endif %}</span></header>
+      {% if step.error %}<p class="error">{{ step.error }}</p>{% endif %}
+      {% if step.file and not run.files_removed %}
+        {% set src = base ~ (step.file | urlencode) %}
+        <div class="media">
+        {% if step.file.endswith(".png") %}<a href="{{ src }}" target="_blank" rel="noopener"><img src="{{ src }}" alt="{{ step.text | truncate(80) }}" loading="lazy"></a>
+        {% elif step.file.endswith(".webm") %}<video src="{{ src }}" controls loop muted playsinline preload="metadata"></video>
+        {% elif step.file.endswith(".wav") %}<audio src="{{ src }}" controls preload="none"></audio>
+        {% elif stage == "shotlist" and shots %}<ol>{% for shot in shots.shots %}<li>{{ shot.still_prompt }} <span class="hint">— {{ shot.motion_prompt }}{% if shot.line %} — “{{ shot.line }}”{% endif %}</span></li>{% endfor %}</ol>
+        {% endif %}</div>
+      {% endif %}
+      {% if step.text and stage != "shotlist" %}<p class="hint">{{ step.text | truncate(200) }}</p>{% endif %}
+      {% if stage != "film" and step.state.value in ("done", "failed", "skipped") and run.state != RunState.RUNNING %}
+      <form class="inline" method="post" action="/pipelines/{{ run.id }}/redo"><input type="hidden" name="stage" value="{{ stage }}"><input type="hidden" name="index" value="{{ step.index }}"><button class="btn quiet">{% if stage == "stills" %}Redraw{% else %}Make again{% endif %}</button></form>
+      {% endif %}
+    </article>
+  {% endfor %}
+  </div>
+  {% endif %}
+  {% endfor %}
+</section>
+{% endblock %}
